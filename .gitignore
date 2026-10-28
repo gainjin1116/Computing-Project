@@ -1,0 +1,7 @@
+# Python
+__pycache__/
+*.pkl
+.env
+
+# Node
+node_modules/
