@@ -1,70 +1,80 @@
-:root {
-  --bg: #f4f7f3; --card: #fff; --ink: #14302b; --mute: #5a6e68; --line: #dbe4df;
-  --safe: #2a9457; --cau: #c98f00; --uns: #d0343a; --acc: #2f6fd0;
-  --safe-bg: #e3f4ea; --cau-bg: #fbf0cf; --uns-bg: #fbe3e4;
+/* Global Transitions & Typography */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+* {
   box-sizing: border-box;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f1a18; --card: #172623; --ink: #e6efec; --mute: #9db1aa; --line: #2a3d38;
-    --safe: #46c07a; --cau: #e8b72e; --uns: #ef5b60; --acc: #7aa7f0;
-    --safe-bg: #173a28; --cau-bg: #3b3013; --uns-bg: #3f1d1f;
-    color-scheme: dark;
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glassmorphism & Modern Card Styling */
+.glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-card {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hover-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Subtle Pulse Indicator for Live Backend Status */
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(46, 125, 50, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 125, 50, 0);
   }
 }
 
-html { scroll-padding-top: env(safe-area-inset-top, 0px); }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 "Source Sans 3", system-ui, sans-serif; padding-left: 220px; }
-h1, h2, h3 { font-family: "Bricolage Grotesque", "Source Sans 3", system-ui, sans-serif; margin: 0; line-height: 1.15; }
-
-header { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; z-index: 5; background: var(--card); border-right: 1px solid var(--line); padding: 20px 14px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
-.brand { font: 800 20px "Bricolage Grotesque", sans-serif; }
-nav { display: flex; flex-direction: column; gap: 6px; }
-nav button { width: 100%; text-align: left; border-color: transparent; background: transparent; }
-nav button, .chip, .btn { font: 600 15px "Source Sans 3", sans-serif; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
-nav button[aria-current="page"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
-
-main { max-width: 1060px; margin: 0 auto; padding: 24px 20px 60px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
-.grid { display: grid; gap: 16px; }
-.hero { grid-template-columns: minmax(260px, 1fr) 1.1fr; align-items: center; }
-.verdict { font: 800 clamp(30px, 5vw, 46px)/1.05 "Bricolage Grotesque", sans-serif; }
-.pill { display: inline-block; border-radius: 99px; padding: 4px 12px; font-weight: 600; font-size: 14px; }
-.safe { background: var(--safe-bg); color: var(--safe); }
-.cau { background: var(--cau-bg); color: var(--cau); }
-.uns { background: var(--uns-bg); color: var(--uns); }
-.muted { color: var(--mute); }
-.warn { border-left: 4px solid var(--cau); background: var(--cau-bg); padding: 12px 16px; border-radius: 8px; margin: 0 0 20px; font-size: 15px; }
-.three { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
-.two { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
-
-.form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-input, select { width: 100%; font: 16px "Source Sans 3", sans-serif; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
-.hint { font-size: 13px; color: var(--mute); margin-top: 3px; }
-.btn.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
-.chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 16px; }
-
-svg { max-width: 100%; height: auto; display: block; }
-svg text { fill: var(--mute); font: 12px "Source Sans 3", sans-serif; }
-table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-.scroll { overflow-x: auto; }
-footer { max-width: 1060px; margin: 0 auto; padding: 0 20px 40px; color: var(--mute); font-size: 14px; }
-
-@media(max-width: 720px) {
-  .hero { grid-template-columns: 1fr; }
-  .form { grid-template-columns: 1fr; }
-  body { padding-left: 96px; }
-  header { width: 96px; padding-left: 8px; padding-right: 8px; }
-  .brand { font-size: 15px; }
-  nav button { font-size: 13px; padding: 8px 6px; }
-  main { padding-left: 14px; padding-right: 14px; }
+.live-pulse {
+  animation: pulseGlow 2s infinite;
 }
-#needle { transition: transform .6s ease; }
+
+/* Chart Container Enhancements */
+.chart-card {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Smooth Fade In */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+/* Print Styles for Export Briefing */
+@media print {
+  header, footer, nav, button, .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}
