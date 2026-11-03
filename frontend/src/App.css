@@ -78,3 +78,22 @@ body {
     color: #000 !important;
   }
 }
+
+
+/* Responsive D3 chart and dashboard helpers */
+.chart-card svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+@media (max-width: 600px) {
+  .chart-card {
+    padding: 16px !important;
+  }
+
+  .chart-card svg {
+    max-width: 100%;
+  }
+}

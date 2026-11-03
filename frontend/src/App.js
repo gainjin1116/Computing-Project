@@ -66,8 +66,12 @@ import D3ProbabilityDonut from './components/charts/D3ProbabilityDonut';
 import D3DiurnalTrend from './components/charts/D3DiurnalTrend';
 import D3FeatureImportance from './components/charts/D3FeatureImportance';
 import D3WeatherClusters from './components/charts/D3WeatherClusters';
+import D3WeekdayHeatmap from './components/charts/D3WeekdayHeatmap';
+import D3WeatherRadar from './components/charts/D3WeatherRadar';
 import PredictForm from './components/PredictForm';
 import './App.css';
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
 // Initial baseline weather conditions (Luddenham Station, Sydney)
 const INITIAL_WEATHER = {
@@ -88,6 +92,9 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [backendOnline, setBackendOnline] = useState(false);
   const [featureImportances, setFeatureImportances] = useState(null);
+  const [predictionExplanation, setPredictionExplanation] = useState(null);
+  const [explanationLoading, setExplanationLoading] = useState(false);
+  const [explanationError, setExplanationError] = useState('');
 
   // Active prediction state
   const [currentWeather, setCurrentWeather] = useState({ ...INITIAL_WEATHER });
@@ -197,11 +204,11 @@ export default function App() {
   useEffect(() => {
     const probeBackend = async () => {
       try {
-        const rootRes = await axios.get('http://127.0.0.1:8000/', { timeout: 2000 });
+        const rootRes = await axios.get(`${API_BASE}/health`, { timeout: 2000 });
         if (rootRes.status === 200) {
           setBackendOnline(true);
           // Load feature importances from FastAPI
-          const featRes = await axios.get('http://127.0.0.1:8000/feature-importance', { timeout: 2000 });
+          const featRes = await axios.get(`${API_BASE}/feature-importance`, { timeout: 2000 });
           if (featRes.data) {
             setFeatureImportances(featRes.data);
           }
@@ -217,15 +224,49 @@ export default function App() {
     setSnackbar({ open: true, message, severity });
   };
 
-  const handlePredictResult = (data) => {
+  const handlePredictResult = async (data) => {
     setPredictionResult(data);
-    if (data.input_params) {
-      setCurrentWeather(data.input_params);
+    setPredictionExplanation(null);
+    setExplanationError('');
+    if (data.input_params) setCurrentWeather(data.input_params);
+
+    // Request a local sensitivity explanation only when the live API produced the prediction.
+    if (!data.is_fallback && data.input_params) {
+      setExplanationLoading(true);
+      try {
+        const response = await axios.post(`${API_BASE}/explain`, data.input_params, { timeout: 10000 });
+        setPredictionExplanation(response.data);
+      } catch (error) {
+        setExplanationError(error.response?.data?.detail || 'The model explanation could not be generated.');
+      } finally {
+        setExplanationLoading(false);
+      }
     }
     showNotification(
-      `Updated safety classification: ${data.label} (${data.estimated_pm25 || 12} µg/m³)`,
+      `Updated safety classification: ${data.label} (${data.estimated_pm25 || 'model output'} µg/m³)`,
       data.prediction === 0 ? 'success' : data.prediction === 1 ? 'warning' : 'error'
     );
+  };
+
+  const handleExportPredictionCsv = () => {
+    const params = predictionResult.input_params || currentWeather;
+    const rows = [
+      ['Generated At', new Date().toISOString()],
+      ['Predicted Safety Level', predictionResult.label],
+      ['Predicted Class', predictionResult.prediction],
+      ['Estimated PM2.5 (ug/m3)', predictionResult.estimated_pm25 ?? 'Not available'],
+      ['Safe Probability', predictionResult.probabilities?.[0] ?? ''],
+      ['Caution Probability', predictionResult.probabilities?.[1] ?? ''],
+      ['Unsafe Probability', predictionResult.probabilities?.[2] ?? ''],
+      ...Object.entries(params).map(([key, value]) => [key, value])
+    ];
+    const csv = rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Recess_Safety_Prediction_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    showNotification('Prediction CSV downloaded.', 'success');
   };
 
   const handleExportBriefing = () => {
@@ -1136,6 +1177,57 @@ ${
                 Explore 24-hour diurnal cyclical variations and unsupervised K-Means atmospheric weather clustering (k=3).
               </Typography>
             </Box>
+
+            <Card sx={{ p: 3, mb: 3.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>Individual Prediction Explanation</Typography>
+                  <Typography variant="body2" color="text.secondary">Shows how changing one input to its dataset median changes the model probability for the predicted class.</Typography>
+                </Box>
+                <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportPredictionCsv}>Export prediction CSV</Button>
+              </Box>
+              {explanationLoading && <Typography variant="body2" color="text.secondary">Calculating local model sensitivity…</Typography>}
+              {explanationError && <Alert severity="info" sx={{ mt: 1 }}>{explanationError}</Alert>}
+              {!explanationLoading && predictionExplanation && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ mb: 1 }}>Predicted class: <strong>{predictionExplanation.label}</strong> · Model probability: <strong>{(predictionExplanation.current_probability * 100).toFixed(1)}%</strong></Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 1.2 }}>
+                    {predictionExplanation.contributions.slice(0, 6).map(item => (
+                      <Paper key={item.feature} variant="outlined" sx={{ p: 1.3, borderRadius: 2 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{item.feature}</Typography>
+                        <Typography variant="caption" color="text.secondary">Input: {item.input_value.toFixed(2)} · Reference: {item.reference_value.toFixed(2)}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: item.probability_change >= 0 ? 'success.main' : 'error.main' }}>{item.probability_change >= 0 ? '+' : ''}{(item.probability_change * 100).toFixed(2)} percentage points</Typography>
+                      </Paper>
+                    ))}
+                  </Box>
+                  <Alert severity="warning" sx={{ mt: 2 }}>{predictionExplanation.warning}</Alert>
+                </Box>
+              )}
+              {!explanationLoading && !predictionExplanation && !explanationError && <Typography variant="body2" color="text.secondary">Run a live prediction to view its local sensitivity explanation. Fallback predictions do not have a trained-model explanation.</Typography>}
+            </Card>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3.5 }}>
+              <Card sx={{ p: 3.5 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Current Weather Profile</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>Normalised comparison of the weather inputs currently used for prediction.</Typography>
+                <D3WeatherRadar params={currentWeather} darkMode={darkMode} />
+              </Card>
+              <Card sx={{ p: 3.5 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Weekday & Hour PM2.5 Heatmap</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>Average PM2.5 by weekday and hour, calculated from the supplied dataset. No calendar dates are assumed.</Typography>
+                <D3WeekdayHeatmap darkMode={darkMode} />
+              </Card>
+            </Box>
+
+            <Card sx={{ p: 2, mb: 3.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Historical dataset export</Typography>
+                  <Typography variant="body2" color="text.secondary">Download the original observations used by the historical charts.</Typography>
+                </Box>
+                <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => window.open(`${API_BASE}/export/history.csv`, '_blank', 'noopener,noreferrer')}>Export CSV</Button>
+              </Box>
+            </Card>
 
             <Card sx={{ p: 3.5, mb: 3.5 }}>
                   <Box sx={{ mb: 2 }}>

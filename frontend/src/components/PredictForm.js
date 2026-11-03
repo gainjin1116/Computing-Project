@@ -22,6 +22,8 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 
+const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+
 // Preset configurations based on Sydney weather archetypes
 const PRESETS = {
   calm: {
@@ -152,7 +154,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
 
     try {
       // Attempt live request to FastAPI backend
-      const response = await axios.post('http://127.0.0.1:8000/predict', submissionData, { timeout: 2500 });
+      const response = await axios.post(`${API_BASE}/predict`, submissionData, { timeout: 2500 });
       if (onBackendStatusChange) onBackendStatusChange(true);
 
       const localEst = calculateLocalPrediction(submissionData);
