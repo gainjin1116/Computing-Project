@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ThemeProvider,
   createTheme,
@@ -7,7 +7,6 @@ import {
   Toolbar,
   Typography,
   Container,
-  Grid,
   Card,
   Button,
   Box,
@@ -35,10 +34,15 @@ import {
   Tooltip,
   Checkbox,
   FormControlLabel,
-  MenuItem
+  MenuItem,
+  BottomNavigation,
+  BottomNavigationAction,
+  useMediaQuery,
+  Skeleton
 } from '@mui/material';
 import {
   Menu as MenuIcon,
+  Close as CloseIcon,
   Dashboard as DashboardIcon,
   Tune as TuneIcon,
   TrendingUp as TrendingUpIcon,
@@ -54,9 +58,7 @@ import {
   Compress as PressureIcon,
   CheckCircle as CheckIcon,
   Warning as WarningIcon,
-  LocationOn as LocationIcon,
-  CloudDone as CloudDoneIcon,
-  CloudOff as CloudOffIcon
+  Phone as PhoneIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -68,6 +70,8 @@ import D3FeatureImportance from './components/charts/D3FeatureImportance';
 import D3WeatherClusters from './components/charts/D3WeatherClusters';
 import PredictForm from './components/PredictForm';
 import './App.css';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
 // Initial baseline weather conditions (Luddenham Station, Sydney)
 const INITIAL_WEATHER = {
@@ -99,6 +103,7 @@ export default function App() {
     is_fallback: false,
     override_applied: false
   });
+  const [isCalculating, setIsCalculating] = useState(false);
 
   // UI Dialog states
   const [emergencyDialogOpen, setEmergencyDialogOpen] = useState(false);
@@ -193,25 +198,75 @@ export default function App() {
     [darkMode]
   );
 
-  // Probe FastAPI backend on mount
+  // Responsive device queries
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  // State for automatic telemetry refresh polling
+  const [lastTelemetryTime, setLastTelemetryTime] = useState(new Date().toLocaleTimeString());
+  const isPollingRef = useRef(false);
+
+  // Probe backend and establish periodic real-time telemetry polling (every 30 seconds)
   useEffect(() => {
-    const probeBackend = async () => {
+    let isMounted = true;
+
+    const fetchTelemetry = async () => {
+      if (isPollingRef.current) return;
+      isPollingRef.current = true;
       try {
-        const rootRes = await axios.get('http://127.0.0.1:8000/', { timeout: 2000 });
-        if (rootRes.status === 200) {
+        const rootRes = await axios.get(`${API_BASE_URL}/`, { timeout: 2500 });
+        if (rootRes.status === 200 && isMounted) {
           setBackendOnline(true);
-          // Load feature importances from FastAPI
-          const featRes = await axios.get('http://127.0.0.1:8000/feature-importance', { timeout: 2000 });
-          if (featRes.data) {
+        }
+
+        // Fetch latest telemetry for automatic Overview dashboard sync
+        const telemetryRes = await axios.get(`${API_BASE_URL}/telemetry/latest`, { timeout: 3000 });
+        if (isMounted && telemetryRes.status === 200 && telemetryRes.data) {
+          const data = telemetryRes.data;
+          setCurrentWeather({
+            temp: data.temp,
+            humidity: data.humidity,
+            wind_speed: data.wind_speed,
+            wind_dir: data.wind_dir,
+            rain: data.rain,
+            pressure: data.pressure,
+            hour: data.hour,
+            day_of_week: data.day_of_week,
+            is_holiday: data.is_holiday
+          });
+          setPredictionResult(prev => ({
+            ...prev,
+            estimated_pm25: data.estimated_pm25,
+            label: data.safety_tier,
+            prediction: data.safety_tier === 'Safe' ? 0 : (data.safety_tier === 'Caution' ? 1 : 2)
+          }));
+          setLastTelemetryTime(new Date(data.timestamp).toLocaleTimeString());
+        }
+
+        // Fetch feature importances if not already loaded
+        if (!featureImportances && isMounted) {
+          const featRes = await axios.get(`${API_BASE_URL}/feature-importance`, { timeout: 2500 });
+          if (featRes.data && isMounted) {
             setFeatureImportances(featRes.data);
           }
         }
       } catch (err) {
-        setBackendOnline(false);
+        if (isMounted) {
+          setBackendOnline(false);
+          setLastTelemetryTime(new Date().toLocaleTimeString());
+        }
+      } finally {
+        isPollingRef.current = false;
       }
     };
-    probeBackend();
-  }, []);
+
+    fetchTelemetry();
+    const intervalId = setInterval(fetchTelemetry, 30000); // 30-second polling interval
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [featureImportances]);
 
   const showNotification = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
@@ -281,27 +336,43 @@ ${
     showNotification('Recess safety briefing report downloaded successfully.', 'success');
   };
 
-  const handleContactSubmit = (e) => {
-    e.preventDefault();
-    if (!contactForm.name || !contactForm.email) {
-      showNotification('Please fill in your name and email address.', 'warning');
+  // Connected real backend API submission for School Health Officer Form
+  const handleContactSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (contactSubmitting) return;
+
+    if (!contactForm.name || !contactForm.name.trim()) {
+      showNotification('Please enter your full name.', 'warning');
       return;
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!contactForm.email || !emailRegex.test(contactForm.email.trim())) {
+      showNotification('Please enter a valid school or personal email address.', 'warning');
+      return;
+    }
+
     setContactSubmitting(true);
-    setTimeout(() => {
-      setContactSubmitting(false);
-      setContactDialogOpen(false);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/contact`, contactForm, { timeout: 4000 });
+      showNotification(response.data.message || 'Incident dispatch successfully recorded.', 'success');
       setContactForm({ name: '', role: 'Teacher', email: '', message: '' });
-      showNotification('Inquiry sent to School Health & Safety Officer.', 'success');
-    }, 1200);
+      setContactDialogOpen(false); // Only close on successful submission
+    } catch (err) {
+      console.warn('Backend contact dispatch submission error:', err);
+      const detailMsg = err.response?.data?.detail || 'Failed to submit incident dispatch. Please check server connection.';
+      showNotification(detailMsg, 'error');
+      // Intentionally do NOT close dialog on error so user does not lose input
+    } finally {
+      setContactSubmitting(false);
+    }
   };
 
   const navLabels = [
-    { label: 'Overview', icon: <DashboardIcon /> },
-    { label: 'Check Conditions', icon: <TuneIcon /> },
-    { label: 'Forecast & Trends', icon: <TrendingUpIcon /> },
-    { label: 'Model & Rigor', icon: <PsychologyIcon /> },
-    { label: 'School Protocols', icon: <HealthIcon /> }
+    { label: 'Overview', icon: <DashboardIcon fontSize="small" /> },
+    { label: 'Check Conditions', icon: <TuneIcon fontSize="small" /> },
+    { label: 'Forecast & Trends', icon: <TrendingUpIcon fontSize="small" /> },
+    { label: 'Model & Rigor', icon: <PsychologyIcon fontSize="small" /> },
+    { label: 'School Protocols', icon: <HealthIcon fontSize="small" /> }
   ];
 
   return (
@@ -314,67 +385,119 @@ ${
         position="sticky"
         elevation={0}
         sx={{
-          backgroundColor: darkMode ? 'rgba(19, 30, 50, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+          backgroundColor: darkMode ? 'rgba(19, 30, 50, 0.94)' : 'rgba(255, 255, 255, 0.94)',
           backdropFilter: 'blur(12px)',
           borderBottom: 1,
           borderColor: 'divider',
           zIndex: 1100
         }}
       >
-        <Container maxWidth={false} sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
-          <Toolbar disableGutters sx={{ minHeight: 68, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Container maxWidth={false} sx={{ px: { xs: 1.5, sm: 2.5, md: 3 } }}>
+          <Toolbar disableGutters sx={{ minHeight: { xs: 58, sm: 66 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {/* Brand Logo & Title */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 }, flexShrink: 0 }}>
               <IconButton
                 color="inherit"
                 edge="start"
                 onClick={() => setDrawerOpen(true)}
-                sx={{ display: { xs: 'flex', md: 'none' } }}
+                sx={{ display: { xs: 'flex', md: 'none' }, p: { xs: 0.8, sm: 1 } }}
+                aria-label="Open menu navigation"
               >
                 <MenuIcon />
               </IconButton>
               <Box
                 sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 2.5,
+                  width: { xs: 34, sm: 38 },
+                  height: { xs: 34, sm: 38 },
+                  borderRadius: 2,
                   backgroundColor: 'primary.main',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#fff',
-                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.35)'
+                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.35)',
+                  flexShrink: 0
                 }}
               >
-                <HealthIcon fontSize="medium" />
+                <HealthIcon fontSize={isMobile ? "small" : "medium"} />
               </Box>
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.15, color: 'text.primary', letterSpacing: -0.3 }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 800,
+                    lineHeight: 1.15,
+                    color: 'text.primary',
+                    letterSpacing: -0.3,
+                    fontSize: { xs: '0.95rem', sm: '1.1rem', lg: '1.2rem' },
+                    whiteSpace: 'nowrap'
+                  }}
+                >
                   Recess Safety Advisor
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>
-                  NSW Schools Air Quality Platform · Luddenham Station
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontWeight: 600,
+                    display: { xs: 'none', xl: 'block' },
+                    fontSize: '0.72rem',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  NSW Schools Air Quality · Luddenham Station
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontWeight: 600,
+                    display: { xs: 'none', md: 'block', xl: 'none' },
+                    fontSize: '0.72rem',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Luddenham Station
                 </Typography>
               </Box>
             </Box>
 
-            {/* Desktop Navigation Links */}
-            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
+            {/* Desktop Navigation Links - Fully visible, non-scrollable flex layout */}
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', flex: 1, justifyContent: 'center', mx: { md: 1, lg: 2 } }}>
               <Tabs
                 value={activeTab}
                 onChange={(_, val) => setActiveTab(val)}
-                variant="scrollable"
-                scrollButtons="auto"
                 textColor="primary"
                 indicatorColor="primary"
                 sx={{
+                  minHeight: 64,
+                  '& .MuiTabs-scroller': {
+                    overflow: 'visible !important'
+                  },
+                  '& .MuiTabs-flexContainer': {
+                    justifyContent: 'center',
+                    gap: { md: 0.25, lg: 0.75 }
+                  },
                   '& .MuiTab-root': {
-                    minHeight: 68,
-                    px: 2,
-                    fontSize: '0.92rem',
+                    minHeight: 64,
+                    minWidth: 'auto',
+                    px: { md: 1, lg: 1.5 },
+                    py: 0.5,
+                    fontSize: { md: '0.82rem', lg: '0.88rem' },
                     fontWeight: 600,
                     textTransform: 'none',
-                    gap: 0.8
+                    gap: 0.6,
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s ease',
+                    borderRadius: 2,
+                    my: 0.5,
+                    '&:hover': {
+                      backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)')
+                    },
+                    '&.Mui-selected': {
+                      fontWeight: 800,
+                      color: 'primary.main'
+                    }
                   }
                 }}
               >
@@ -385,25 +508,43 @@ ${
             </Box>
 
             {/* Quick Action Badges & Buttons */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.6, sm: 1 }, flexShrink: 0 }}>
               {/* Backend Status Indicator */}
               <Tooltip title={backendOnline ? 'FastAPI Backend Online (Connected at http://127.0.0.1:8000)' : 'FastAPI Offline (Running in Verified Local Simulation Mode)'}>
                 <Chip
                   size="small"
-                  icon={backendOnline ? <CloudDoneIcon fontSize="small" /> : <CloudOffIcon fontSize="small" />}
+                  icon={<Box component="span" className={backendOnline ? "live-pulse-dot" : "fallback-dot"} sx={{ ml: 1, mr: -0.5 }} />}
                   label={backendOnline ? 'FastAPI Live' : 'Local Fallback'}
                   color={backendOnline ? 'success' : 'default'}
                   variant={backendOnline ? 'filled' : 'outlined'}
                   sx={{
                     fontWeight: 700,
-                    fontSize: '0.75rem',
+                    fontSize: '0.72rem',
                     display: { xs: 'none', sm: 'inline-flex' },
                     cursor: 'help'
                   }}
                 />
               </Tooltip>
 
-              {/* Emergency Protocol Trigger - Toned down outlined button to prevent alarm fatigue */}
+              {/* Mobile Quick Emergency Icon Button */}
+              <Tooltip title="Emergency Asthma First Aid SOP">
+                <IconButton
+                  color="error"
+                  onClick={() => setEmergencyDialogOpen(true)}
+                  sx={{
+                    display: { xs: 'flex', sm: 'none' },
+                    border: 1,
+                    borderColor: 'error.main',
+                    p: 0.8,
+                    backgroundColor: darkMode ? 'rgba(211, 47, 47, 0.15)' : 'rgba(211, 47, 47, 0.08)'
+                  }}
+                  aria-label="Asthma Emergency Protocol"
+                >
+                  <EmergencyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+
+              {/* Tablet/Desktop Emergency Protocol Trigger */}
               <Button
                 variant="outlined"
                 color="error"
@@ -414,23 +555,19 @@ ${
                   fontWeight: 700,
                   display: { xs: 'none', sm: 'inline-flex' },
                   borderColor: 'error.main',
+                  fontSize: '0.8rem',
+                  py: 0.6,
+                  px: 1.2,
                   '&:hover': { backgroundColor: 'rgba(211, 47, 47, 0.08)' }
                 }}
               >
                 Asthma SOP
               </Button>
 
-              {/* Export Briefing Trigger */}
-              <Tooltip title="Export Morning Recess Briefing">
-                <IconButton color="inherit" onClick={() => setExportDialogOpen(true)}>
-                  <DownloadIcon />
-                </IconButton>
-              </Tooltip>
-
-              {/* Dark / Light Mode Toggle */}
+              {/* Dark/Light Mode Toggle */}
               <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-                <IconButton color="inherit" onClick={() => setDarkMode(!darkMode)}>
-                  {darkMode ? <LightModeIcon sx={{ color: '#f59e0b' }} /> : <DarkModeIcon />}
+                <IconButton onClick={() => setDarkMode(!darkMode)} color="inherit" sx={{ p: { xs: 0.8, sm: 1 } }}>
+                  {darkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
                 </IconButton>
               </Tooltip>
             </Box>
@@ -440,26 +577,48 @@ ${
 
       {/* Responsive Mobile Drawer */}
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <Box sx={{ width: 280, p: 2.5 }} role="presentation">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-            <Box
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: 2,
-                backgroundColor: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff'
-              }}
-            >
-              <HealthIcon fontSize="small" />
+        <Box sx={{ width: 290, p: 2.5 }} role="presentation">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                  backgroundColor: 'primary.main',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff'
+                }}
+              >
+                <HealthIcon fontSize="small" />
+              </Box>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                  Recess Safety
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Luddenham Station
+                </Typography>
+              </Box>
             </Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              Recess Safety
-            </Typography>
+            <IconButton size="small" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+              <CloseIcon fontSize="small" />
+            </IconButton>
           </Box>
+
+          <Box sx={{ mb: 2 }}>
+            <Chip
+              size="small"
+              icon={<Box component="span" className={backendOnline ? "live-pulse-dot" : "fallback-dot"} sx={{ ml: 1, mr: -0.5 }} />}
+              label={backendOnline ? 'FastAPI Backend Online' : 'Verified Local Fallback'}
+              color={backendOnline ? 'success' : 'default'}
+              variant="outlined"
+              sx={{ fontWeight: 700, fontSize: '0.72rem', width: '100%', justifyContent: 'flex-start' }}
+            />
+          </Box>
+
           <Divider sx={{ mb: 2 }} />
 
           <List sx={{ p: 0 }}>
@@ -471,7 +630,7 @@ ${
                     setActiveTab(idx);
                     setDrawerOpen(false);
                   }}
-                  sx={{ borderRadius: 2 }}
+                  sx={{ borderRadius: 2, minHeight: 46 }}
                 >
                   <ListItemIcon sx={{ color: activeTab === idx ? 'primary.main' : 'inherit', minWidth: 40 }}>
                     {item.icon}
@@ -479,8 +638,9 @@ ${
                   <ListItemText
                     primary={item.label}
                     primaryTypographyProps={{
-                      fontWeight: activeTab === idx ? 700 : 500,
-                      color: activeTab === idx ? 'primary.main' : 'inherit'
+                      fontWeight: activeTab === idx ? 800 : 500,
+                      color: activeTab === idx ? 'primary.main' : 'inherit',
+                      fontSize: '0.92rem'
                     }}
                   />
                 </ListItemButton>
@@ -500,7 +660,7 @@ ${
                 setDrawerOpen(false);
                 setEmergencyDialogOpen(true);
               }}
-              sx={{ borderColor: 'error.main', fontWeight: 700 }}
+              sx={{ borderColor: 'error.main', fontWeight: 700, minHeight: 42 }}
             >
               Asthma First Aid SOP
             </Button>
@@ -513,6 +673,7 @@ ${
                 setDrawerOpen(false);
                 setExportDialogOpen(true);
               }}
+              sx={{ minHeight: 42 }}
             >
               Export Briefing Report
             </Button>
@@ -521,68 +682,30 @@ ${
       </Drawer>
 
       {/* Main Container */}
-      <Container maxWidth="lg" component="main" sx={{ py: 4, px: { xs: 2.5, sm: 4, md: 5 }, flex: 1, minHeight: 'calc(100vh - 180px)' }}>
+      <Container
+        maxWidth="lg"
+        component="main"
+        sx={{
+          py: { xs: 2.5, sm: 3.5, md: 4 },
+          px: { xs: 1.5, sm: 3, md: 4 },
+          pb: { xs: 10, md: 5 },
+          flex: 1,
+          minHeight: 'calc(100vh - 180px)'
+        }}
+      >
 
         {/* ============================================================== */}
         {/* VIEW 0: TODAY'S OVERVIEW / DASHBOARD                           */}
         {/* ============================================================== */}
         {activeTab === 0 && (
           <Box className="fade-in">
-            {/* Station Microclimate Banner (Full-Width) */}
-            <Paper
-              variant="outlined"
-              sx={{
-                p: { xs: 2, sm: 2.5 },
-                mb: 3,
-                borderRadius: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 2,
-                backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(241, 245, 249, 0.7)',
-                borderColor: 'divider'
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <LocationIcon color="primary" />
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                    Monitoring Station: Luddenham (LUDD), Western Sydney
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                    NSW Schools Weather and Air Quality (SWAQ) Dataset · Real-Time Telemetry
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Chip
-                  size="small"
-                  label={backendOnline ? 'FastAPI AI Active' : 'Local Verification Engine'}
-                  color={backendOnline ? 'success' : 'default'}
-                  variant="outlined"
-                  sx={{ fontWeight: 700 }}
-                />
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => setActiveTab(1)}
-                  endIcon={<TuneIcon />}
-                  sx={{ borderRadius: 2 }}
-                >
-                  Simulate Conditions
-                </Button>
-              </Box>
-            </Paper>
-
-            {/* Main Safety Recommendation Card (FULL-WIDTH) */}
+            {/* Top Primary Directive Card */}
             <Card
               className="hover-card"
               sx={{
                 mb: 3,
-                p: { xs: 2.5, sm: 3.5 },
-                borderLeft: 8,
+                p: { xs: 2, sm: 3.5 },
+                borderLeft: { xs: 6, sm: 8 },
                 borderColor:
                   predictionResult.prediction === 0
                     ? 'success.main'
@@ -593,7 +716,7 @@ ${
               }}
             >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1.5, mb: 1.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
                   <Chip
                     label={predictionResult.label.toUpperCase()}
                     sx={{
@@ -614,9 +737,34 @@ ${
                   </Typography>
                 </Box>
 
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                  Assessed for: Hour {currentWeather.hour}:00 · {currentWeather.is_holiday ? 'NSW Public Holiday' : 'Regular School Day'}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                    Assessed for: Hour {currentWeather.hour}:00 · {currentWeather.is_holiday ? 'NSW Public Holiday' : 'Regular School Day'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'inline' } }}>•</Typography>
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.8,
+                      backgroundColor: backendOnline ? 'rgba(46, 125, 50, 0.08)' : 'rgba(237, 108, 2, 0.08)',
+                      px: 1,
+                      py: 0.3,
+                      borderRadius: 1
+                    }}
+                  >
+                    <Box component="span" className={backendOnline ? "live-pulse-dot" : "fallback-dot"} />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        color: backendOnline ? 'success.main' : 'warning.main'
+                      }}
+                    >
+                      {backendOnline ? 'Live Telemetry Sync' : 'Local Simulation Sync'}: {lastTelemetryTime}
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
 
               <Typography
@@ -625,6 +773,7 @@ ${
                 sx={{
                   fontWeight: 800,
                   mb: 1.5,
+                  fontSize: { xs: '1.35rem', sm: '1.8rem', md: '2.1rem' },
                   color:
                     predictionResult.prediction === 0
                       ? 'success.main'
@@ -640,7 +789,7 @@ ${
                   : 'UNSAFE: Move all recess & PE indoors'}
               </Typography>
 
-              <Typography variant="body1" sx={{ color: 'text.primary', mb: 2.5, lineHeight: 1.65 }}>
+              <Typography variant="body1" sx={{ color: 'text.primary', mb: 2.5, lineHeight: 1.65, fontSize: { xs: '0.92rem', sm: '1rem' } }}>
                 {predictionResult.prediction === 0
                   ? 'Air quality in the Luddenham corridor is optimal. Fine particulate matter (PM2.5) concentrations remain safely below NSW Health thresholds. Normal outdoor playtime, physical education, and athletic drills are authorized.'
                   : predictionResult.prediction === 1
@@ -654,12 +803,12 @@ ${
                 </Alert>
               )}
 
-              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', flexDirection: { xs: 'column', sm: 'row' } }}>
                 <Button
                   variant="contained"
                   color={predictionResult.prediction === 0 ? 'success' : predictionResult.prediction === 1 ? 'warning' : 'error'}
                   onClick={() => setActiveTab(1)}
-                  sx={{ borderRadius: 2 }}
+                  sx={{ borderRadius: 2, width: { xs: '100%', sm: 'auto' }, minHeight: 42 }}
                 >
                   Test Weather Conditions
                 </Button>
@@ -668,7 +817,7 @@ ${
                   color="error"
                   onClick={() => setEmergencyDialogOpen(true)}
                   startIcon={<EmergencyIcon />}
-                  sx={{ borderRadius: 2 }}
+                  sx={{ borderRadius: 2, width: { xs: '100%', sm: 'auto' }, minHeight: 42 }}
                 >
                   Asthma Emergency SOP
                 </Button>
@@ -677,7 +826,7 @@ ${
                   color="primary"
                   onClick={() => setExportDialogOpen(true)}
                   startIcon={<DownloadIcon />}
-                  sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none' }}
+                  sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', width: { xs: '100%', sm: 'auto' }, minHeight: 42 }}
                 >
                   Export Briefing Report
                 </Button>
@@ -696,37 +845,36 @@ ${
             >
               {/* ROW 1 - LEFT: PM2.5 Safety Dial Card */}
               <Box>
-                <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
+                <Card sx={{ height: '100%', p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ mb: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                       PM2.5 Radial Safety Dial
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                       Continuous fine particulate reading calibrated to Australian NEPM standards
                     </Typography>
                   </Box>
-                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', py: 2 }}>
+                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', py: 1.5 }}>
                     <D3GaugeChart value={predictionResult.estimated_pm25} maxVal={100} darkMode={darkMode} />
                   </Box>
                 </Card>
               </Box>
 
-              {/* ROW 1 - RIGHT: Teacher & Nurse Readiness Checklist Card (Differentiating Critical vs Optional) */}
+              {/* ROW 1 - RIGHT: Teacher & Nurse Readiness Checklist Card */}
               <Box>
-                <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
+                <Card sx={{ height: '100%', p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.8 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <CheckIcon color={checklist.inhalers && checklist.firstAid ? "success" : "warning"} />
-                      <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                         Recess Readiness Checklist
                       </Typography>
                     </Box>
                     <Chip
                       size="small"
-                      label={checklist.inhalers && checklist.firstAid ? "Critical Protocol Ready (2/2)" : "Critical Action Required"}
-                      color={checklist.inhalers && checklist.firstAid ? "success" : "warning"}
-                      variant="filled"
-                      sx={{ fontWeight: 800, fontSize: '0.75rem' }}
+                      label={`${(checklist.inhalers ? 1 : 0) + (checklist.firstAid ? 1 : 0) + (checklist.indoorBackup ? 1 : 0) + (checklist.notificationsSent ? 1 : 0)}/4 Ready`}
+                      color={checklist.inhalers && checklist.firstAid ? 'success' : 'warning'}
+                      sx={{ fontWeight: 700 }}
                     />
                   </Box>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.8 }}>
@@ -738,12 +886,14 @@ ${
                     <Paper
                       variant="outlined"
                       sx={{
-                        p: 1,
+                        p: 1.2,
                         px: 1.5,
                         borderRadius: 2,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 0.8,
                         borderColor: checklist.inhalers ? 'success.light' : 'divider',
                         backgroundColor: checklist.inhalers ? (darkMode ? 'rgba(46, 125, 50, 0.1)' : '#f0fdf4') : 'inherit'
                       }}
@@ -767,12 +917,14 @@ ${
                     <Paper
                       variant="outlined"
                       sx={{
-                        p: 1,
+                        p: 1.2,
                         px: 1.5,
                         borderRadius: 2,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 0.8,
                         borderColor: checklist.firstAid ? 'success.light' : 'divider',
                         backgroundColor: checklist.firstAid ? (darkMode ? 'rgba(46, 125, 50, 0.1)' : '#f0fdf4') : 'inherit'
                       }}
@@ -796,12 +948,14 @@ ${
                     <Paper
                       variant="outlined"
                       sx={{
-                        p: 1,
+                        p: 1.2,
                         px: 1.5,
                         borderRadius: 2,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 0.8,
                         backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.25)' : '#f8fafc'
                       }}
                     >
@@ -824,12 +978,14 @@ ${
                     <Paper
                       variant="outlined"
                       sx={{
-                        p: 1,
+                        p: 1.2,
                         px: 1.5,
                         borderRadius: 2,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 0.8,
                         backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.25)' : '#f8fafc'
                       }}
                     >
@@ -852,12 +1008,13 @@ ${
               </Box>
             </Box>
 
+            {/* Responsive Two-Column CSS Grid for Row 2 Telemetry & Guidelines */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, alignItems: 'stretch' }}>
               {/* ROW 2 - LEFT: Environmental Monitoring Parameters Card */}
               <Box>
-                <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
+                <Card sx={{ height: '100%', p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                       Environmental Telemetry Parameters
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -865,50 +1022,87 @@ ${
                     </Typography>
                   </Box>
 
-                  <Grid container spacing={2} sx={{ flex: 1 }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr' }, gap: { xs: 1.2, sm: 1.5 }, flex: 1 }}>
                     {[
-                      { title: 'Temperature', val: `${currentWeather.temp} °C`, icon: <TempIcon color="error" />, desc: 'Thermal sensor' },
-                      { title: 'Relative Humidity', val: `${currentWeather.humidity} %`, icon: <HumidityIcon color="primary" />, desc: 'Moisture factor' },
-                      { title: 'Wind Speed & Dir', val: `${currentWeather.wind_speed} m/s`, icon: <WindIcon color="info" />, desc: `Heading ${currentWeather.wind_dir}°` },
-                      { title: 'Barometric Pressure', val: `${currentWeather.pressure} hPa`, icon: <PressureIcon color="warning" />, desc: 'Atmospheric stability' }
+                      {
+                        title: 'Temperature',
+                        val: `${currentWeather.temp} °C`,
+                        icon: <TempIcon color="error" />,
+                        desc: 'Thermal sensor',
+                        accent: '#ef4444',
+                        bgLight: '#fff5f5',
+                        bgDark: 'rgba(239, 68, 68, 0.08)'
+                      },
+                      {
+                        title: 'Relative Humidity',
+                        val: `${currentWeather.humidity} %`,
+                        icon: <HumidityIcon color="primary" />,
+                        desc: 'Moisture factor',
+                        accent: '#0284c7',
+                        bgLight: '#f0f9ff',
+                        bgDark: 'rgba(2, 132, 199, 0.08)'
+                      },
+                      {
+                        title: 'Wind Speed & Dir',
+                        val: `${currentWeather.wind_speed} m/s`,
+                        icon: <WindIcon color="info" />,
+                        desc: `Heading ${currentWeather.wind_dir}°`,
+                        accent: '#14b8a6',
+                        bgLight: '#f0fdfa',
+                        bgDark: 'rgba(20, 184, 166, 0.08)'
+                      },
+                      {
+                        title: 'Barometric Pressure',
+                        val: `${currentWeather.pressure} hPa`,
+                        icon: <PressureIcon color="warning" />,
+                        desc: 'Atmospheric stability',
+                        accent: '#f59e0b',
+                        bgLight: '#fffbeb',
+                        bgDark: 'rgba(245, 158, 11, 0.08)'
+                      }
                     ].map((metric, i) => (
-                      <Grid item xs={6} key={i}>
-                        <Paper
-                          variant="outlined"
-                          sx={{
-                            p: 2,
-                            height: '100%',
-                            borderRadius: 2,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.4)' : '#f8fafc'
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase' }}>
-                              {metric.title}
-                            </Typography>
-                            {metric.icon}
-                          </Box>
-                          <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-                            {metric.val}
+                      <Paper
+                        key={i}
+                        variant="outlined"
+                        sx={{
+                          p: { xs: 1.2, sm: 1.8 },
+                          height: '100%',
+                          borderRadius: 2,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          borderLeft: `3px solid ${metric.accent}`,
+                          backgroundColor: darkMode ? metric.bgDark : metric.bgLight,
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+                          }
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.8 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.68rem' }}>
+                            {metric.title}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {metric.desc}
-                          </Typography>
-                        </Paper>
-                      </Grid>
+                          {metric.icon}
+                        </Box>
+                        <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5, fontSize: { xs: '1.15rem', sm: '1.35rem' } }}>
+                          {metric.val}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                          {metric.desc}
+                        </Typography>
+                      </Paper>
                     ))}
-                  </Grid>
+                  </Box>
                 </Card>
               </Box>
 
               {/* ROW 2 - RIGHT: NSW Health Recess Activity Guidelines Card */}
               <Box>
-                <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
+                <Card sx={{ height: '100%', p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                       NSW Health Recess Activity Guidelines
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -921,7 +1115,7 @@ ${
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'success.main' }}>
                         Safe Tier (0 to 25 µg/m³ PM2.5)
                       </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
                         Unrestricted outdoor playtime. All classes, physical education, and competitive athletic drills may proceed outdoors as scheduled.
                       </Typography>
                     </Paper>
@@ -930,7 +1124,7 @@ ${
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'warning.main' }}>
                         Caution Tier (25 to 50 µg/m³ PM2.5)
                       </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
                         Asthma action plan activation. Vulnerable children remain indoors in filtered rooms. Non-asthmatic students limit intense aerobic running.
                       </Typography>
                     </Paper>
@@ -939,7 +1133,7 @@ ${
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'error.main' }}>
                         Unsafe Tier (&gt; 50 µg/m³ PM2.5)
                       </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
                         Complete outdoor recess shutdown. All students and staff remain inside sealed, air-filtered facilities until alerts clear.
                       </Typography>
                     </Paper>
@@ -956,17 +1150,17 @@ ${
         {activeTab === 1 && (
           <Box className="fade-in">
             <Box sx={{ mb: 3 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.4rem', sm: '1.8rem', md: '2.1rem' } }}>
                 Atmospheric Condition Simulator
               </Typography>
-              <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+              <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
                 Input meteorological parameters or select quick-fill presets to predict recess air safety for any hour of the day.
               </Typography>
             </Box>
 
             {/* Form Full-Width */}
-            <Card sx={{ p: { xs: 2.5, sm: 3.5 }, mb: 3.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+            <Card sx={{ p: { xs: 2, sm: 3.5 }, mb: 3.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                 Environmental Input Parameters
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
@@ -976,12 +1170,13 @@ ${
               <PredictForm
                 onPredict={handlePredictResult}
                 onBackendStatusChange={(status) => setBackendOnline(status)}
+                onLoadingChange={setIsCalculating}
               />
             </Card>
 
             {/* Balanced Two-Column Grid for Simulator Results */}
             <Box sx={{ mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                 Simulation Prediction & Operational Analysis
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
@@ -998,126 +1193,160 @@ ${
               }}
             >
               {/* Left Column: Safe Banner & D3 Probability Donut */}
-              <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3.5 }, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary', mb: 1.5, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                  PREDICTED RECESS SAFETY LEVEL
-                </Typography>
+              <Card sx={{ height: '100%', p: { xs: 2, sm: 3.5 }, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
+                {isCalculating ? (
+                  <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Skeleton variant="text" width={220} height={20} sx={{ mx: 'auto', mb: 1.5 }} animation="wave" />
+                    {/* A. Predicted Level Banner Skeleton */}
+                    <Skeleton variant="rounded" width="100%" height={105} sx={{ borderRadius: 3, mb: 2.5 }} animation="wave" />
+                    <Skeleton variant="text" width={180} height={28} sx={{ mx: 'auto', mb: 0.5 }} animation="wave" />
+                    <Skeleton variant="text" width={260} height={18} sx={{ mx: 'auto', mb: 2 }} animation="wave" />
+                    {/* B. Confidence Donut Skeleton */}
+                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', my: 2 }}>
+                      <Skeleton variant="circular" width={200} height={200} animation="wave" />
+                    </Box>
+                  </Box>
+                ) : (
+                  <>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary', mb: 1.5, letterSpacing: 0.5, textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                      PREDICTED RECESS SAFETY LEVEL
+                    </Typography>
 
-                <Box
-                  sx={{
-                    py: 2.5,
-                    px: 3,
-                    borderRadius: 3,
-                    mb: 2.5,
-                    backgroundColor:
-                      predictionResult.prediction === 0
-                        ? 'success.main'
-                        : predictionResult.prediction === 1
-                        ? 'warning.main'
-                        : 'error.main',
-                    color: '#fff',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -0.5 }}>
-                    {predictionResult.label}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.95 }}>
-                    Estimated PM2.5: {predictionResult.estimated_pm25} µg/m³
-                  </Typography>
-                </Box>
+                    <Box
+                      sx={{
+                        py: { xs: 2, sm: 2.5 },
+                        px: { xs: 2, sm: 3 },
+                        borderRadius: 3,
+                        mb: 2.5,
+                        backgroundColor:
+                          predictionResult.prediction === 0
+                            ? 'success.main'
+                            : predictionResult.prediction === 1
+                            ? 'warning.main'
+                            : 'error.main',
+                        color: '#fff',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -0.5, fontSize: { xs: '1.8rem', sm: '2.5rem' } }}>
+                        {predictionResult.label}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.95 }}>
+                        Estimated PM2.5: {predictionResult.estimated_pm25} µg/m³
+                      </Typography>
+                    </Box>
 
-                {/* D3 Probability Donut Chart */}
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
-                  AI Model Prediction Confidence
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
-                  Probability distribution across Safe, Caution, and Unsafe tiers
-                </Typography>
-                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <D3ProbabilityDonut
-                    probabilities={predictionResult.probabilities}
-                    darkMode={darkMode}
-                  />
-                </Box>
+                    {/* D3 Probability Donut Chart */}
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
+                      AI Model Prediction Confidence
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
+                      Probability distribution across Safe, Caution, and Unsafe tiers
+                    </Typography>
+                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <D3ProbabilityDonut
+                        probabilities={predictionResult.probabilities}
+                        darkMode={darkMode}
+                      />
+                    </Box>
 
-                {predictionResult.override_applied && (
-                  <Alert severity="warning" sx={{ mt: 2, textAlign: 'left', borderRadius: 2 }}>
-                    <strong>Deterministic Safety Rule Triggered:</strong> Stagnant heatwave conditions detected (Temp &gt; 30°C, RH &gt; 70%, Wind &lt; 3 m/s). Child safety is prioritized.
-                  </Alert>
+                    {predictionResult.override_applied && (
+                      <Alert severity="warning" sx={{ mt: 2, textAlign: 'left', borderRadius: 2 }}>
+                        <strong>Deterministic Safety Rule Triggered:</strong> Stagnant heatwave conditions detected (Temp &gt; 30°C, RH &gt; 70%, Wind &lt; 3 m/s). Child safety is prioritized.
+                      </Alert>
+                    )}
+                  </>
                 )}
               </Card>
 
               {/* Right Column: Actionable School Directive */}
-              <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3.5 }, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-                    Actionable School Directive
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                    Operational advice for PE & playtime based on simulated atmospheric conditions
-                  </Typography>
-
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 2.5,
-                      borderRadius: 2.5,
-                      mb: 2.5,
-                      borderLeft: 6,
-                      borderColor:
-                        predictionResult.prediction === 0
-                          ? 'success.main'
-                          : predictionResult.prediction === 1
-                          ? 'warning.main'
-                          : 'error.main',
-                      backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.3)' : '#f8fafc'
-                    }}
-                  >
-                    <Typography variant="body1" sx={{ color: 'text.primary', fontWeight: 600, lineHeight: 1.65 }}>
-                      {predictionResult.prediction === 0
-                        ? 'Optimal outdoor conditions. Normal recess, physical education, and outdoor sports permitted for all students without restriction.'
-                        : predictionResult.prediction === 1
-                        ? 'Elevated caution advised. Asthmatic and medically vulnerable students should stay indoors in air-conditioned rooms. Non-asthmatic students must limit intense aerobic workouts.'
-                        : 'Hazardous air quality. Suspend outdoor recess. Move all students and classes into indoor air-conditioned facilities immediately.'}
-                    </Typography>
-                  </Paper>
-
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <Paper variant="outlined" sx={{ p: 1.8, borderRadius: 2 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        School Nurse Protocol:
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3 }}>
-                        {predictionResult.prediction === 0
-                          ? 'Standard playground supervision. Keep first aid kit accessible.'
-                          : predictionResult.prediction === 1
-                          ? 'Conduct proactive inhaler check for registered asthmatic pupils.'
-                          : 'Prepare emergency nebulizers and notify administration of activity shutdown.'}
-                      </Typography>
-                    </Paper>
-
-                    <Paper variant="outlined" sx={{ p: 1.8, borderRadius: 2 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        Facility Guidelines:
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3 }}>
-                        Ensure classroom HEPA filters and HVAC air-exchange are set to indoor recirculation.
-                      </Typography>
-                    </Paper>
+              <Card sx={{ height: '100%', p: { xs: 2, sm: 3.5 }, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                {isCalculating ? (
+                  <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Skeleton variant="text" width={240} height={32} sx={{ mb: 0.5 }} animation="wave" />
+                      <Skeleton variant="text" width="80%" height={20} sx={{ mb: 2 }} animation="wave" />
+                      {/* C. Safety Directive Card Skeleton */}
+                      <Skeleton variant="rounded" width="100%" height={90} sx={{ borderRadius: 2.5, mb: 2.5 }} animation="wave" />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Skeleton variant="rounded" width="100%" height={75} sx={{ borderRadius: 2 }} animation="wave" />
+                        <Skeleton variant="rounded" width="100%" height={75} sx={{ borderRadius: 2 }} animation="wave" />
+                      </Box>
+                    </Box>
+                    <Skeleton variant="rounded" width="100%" height={46} sx={{ borderRadius: 2, mt: 3 }} animation="wave" />
                   </Box>
-                </Box>
+                ) : (
+                  <>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                        Actionable School Directive
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                        Operational advice for PE & playtime based on simulated atmospheric conditions
+                      </Typography>
 
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<DownloadIcon />}
-                  onClick={() => setExportDialogOpen(true)}
-                  sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', mt: 3, py: 1.2 }}
-                >
-                  Export Simulation Briefing
-                </Button>
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: { xs: 1.8, sm: 2.5 },
+                          borderRadius: 2.5,
+                          mb: 2.5,
+                          borderLeft: 6,
+                          borderColor:
+                            predictionResult.prediction === 0
+                              ? 'success.main'
+                              : predictionResult.prediction === 1
+                              ? 'warning.main'
+                              : 'error.main',
+                          backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.3)' : '#f8fafc'
+                        }}
+                      >
+                        <Typography variant="body1" sx={{ color: 'text.primary', fontWeight: 600, lineHeight: 1.65, fontSize: { xs: '0.92rem', sm: '1rem' } }}>
+                          {predictionResult.prediction === 0
+                            ? 'Optimal outdoor conditions. Normal recess, physical education, and outdoor sports permitted for all students without restriction.'
+                            : predictionResult.prediction === 1
+                            ? 'Elevated caution advised. Asthmatic and medically vulnerable students should stay indoors in air-conditioned rooms. Non-asthmatic students must limit intense aerobic workouts.'
+                            : 'Hazardous air quality. Suspend outdoor recess. Move all students and classes into indoor air-conditioned facilities immediately.'}
+                        </Typography>
+                      </Paper>
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Paper variant="outlined" sx={{ p: 1.8, borderRadius: 2 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            School Nurse Protocol:
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
+                            {predictionResult.prediction === 0
+                              ? 'Standard playground supervision. Keep first aid kit accessible.'
+                              : predictionResult.prediction === 1
+                              ? 'Conduct proactive inhaler check for registered asthmatic pupils.'
+                              : 'Prepare emergency nebulizers and notify administration of activity shutdown.'}
+                          </Typography>
+                        </Paper>
+
+                        <Paper variant="outlined" sx={{ p: 1.8, borderRadius: 2 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            Facility Guidelines:
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
+                            Ensure classroom HEPA filters and HVAC air-exchange are set to indoor recirculation.
+                          </Typography>
+                        </Paper>
+                      </Box>
+                    </Box>
+
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      color="primary"
+                      startIcon={<DownloadIcon />}
+                      onClick={() => setExportDialogOpen(true)}
+                      sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', mt: 3, py: 1.2 }}
+                    >
+                      Export Simulation Briefing
+                    </Button>
+                  </>
+                )}
               </Card>
             </Box>
           </Box>
@@ -1129,32 +1358,32 @@ ${
         {activeTab === 2 && (
           <Box className="fade-in">
             <Box sx={{ mb: 3 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.4rem', sm: '1.8rem', md: '2.1rem' } }}>
                 Air Quality Forecast & Trend Analysis
               </Typography>
-              <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+              <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
                 Explore 24-hour diurnal cyclical variations and unsupervised K-Means atmospheric weather clustering (k=3).
               </Typography>
             </Box>
 
-            <Card sx={{ p: 3.5, mb: 3.5 }}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                      24-Hour Diurnal Particulate Matter Curve (PM2.5)
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      Visualizes diurnal accumulation caused by early morning commuter rush hours and photochemical solar heating. Shaded band highlights primary school recess and lunch (10:30 - 13:30).
-                    </Typography>
-                  </Box>
+            <Card sx={{ p: { xs: 2, sm: 3.5 }, mb: 3.5 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                  24-Hour Diurnal Particulate Matter Curve (PM2.5)
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Visualizes diurnal accumulation caused by early morning commuter rush hours and photochemical solar heating. Shaded band highlights primary school recess and lunch (10:30 - 13:30).
+                </Typography>
+              </Box>
 
-                  <D3DiurnalTrend activeParams={currentWeather} darkMode={darkMode} />
+              <D3DiurnalTrend activeParams={currentWeather} darkMode={darkMode} />
             </Card>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, alignItems: 'stretch' }}>
               {/* K-Means Clustering Explorer */}
               <Box>
-                <Card sx={{ p: 3.5, height: '100%' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                     Unsupervised Weather Clusters (K-Means k=3)
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
@@ -1166,8 +1395,8 @@ ${
 
               {/* Weekly Comparison & Traffic Patterns */}
               <Box>
-                <Card sx={{ p: 3.5, height: '100%' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                     Weekday vs Weekend Pollution Cycle
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
@@ -1206,10 +1435,10 @@ ${
         {activeTab === 3 && (
           <Box className="fade-in">
             <Box sx={{ mb: 3 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.4rem', sm: '1.8rem', md: '2.1rem' } }}>
                 Model Architecture & Scientific Rigor
               </Typography>
-              <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+              <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
                 Complete documentation of Machine Learning workflows, feature engineering, and the Accuracy Paradox resolution.
               </Typography>
             </Box>
@@ -1218,19 +1447,19 @@ ${
             <Alert
               severity="warning"
               icon={<WarningIcon fontSize="inherit" />}
-              sx={{ mb: 4, borderRadius: 3, p: 2 }}
+              sx={{ mb: 4, borderRadius: 3, p: { xs: 1.5, sm: 2 } }}
             >
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '0.95rem', sm: '1.05rem' } }}>
                 Critical Analysis: Resolving the "Accuracy Paradox" in Child Health Decisions
               </Typography>
-              <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+              <Typography variant="body2" sx={{ lineHeight: 1.6, fontSize: { xs: '0.86rem', sm: '0.92rem' } }}>
                 In Assignment 2, our 100-tree Random Forest scored <strong>98.9% overall accuracy</strong>. However, rigorous confusion matrix scrutiny revealed a near-zero recall for the "Unsafe" class. Because hazardous pollution days represent &lt;1% of Sydney's historical data, a naive model achieves 99% accuracy by predicting "Safe" 100% of the time—a catastrophic failure mode for an asthmatic child. To fix this, our pipeline deploys <code>class_weight='balanced'</code> penalty scaling in Scikit-Learn alongside a deterministic safety override for severe weather inversions.
               </Typography>
             </Alert>
 
             {/* Full-Width Feature Importance Chart */}
-            <Card sx={{ p: { xs: 2.5, sm: 3.5 }, mb: 3.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+            <Card sx={{ p: { xs: 2, sm: 3.5 }, mb: 3.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                 Random Forest Gini Feature Importances (D3.js)
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
@@ -1243,8 +1472,8 @@ ${
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, alignItems: 'stretch' }}>
               {/* Left Column: Algorithmic Benchmark Scorecard */}
               <Box>
-                <Card sx={{ p: { xs: 2.5, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+                <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                     Algorithmic Benchmark Scorecard
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
@@ -1259,7 +1488,7 @@ ${
                       <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.4 }}>
                         R² = 0.123, MAE = 2.36
                       </Typography>
-                      <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600, display: 'block' }}>
                         Outcome: Fails to capture non-linear atmospheric turbulence; proves necessity of ensemble trees.
                       </Typography>
                     </Paper>
@@ -1271,7 +1500,7 @@ ${
                       <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.4 }}>
                         Accuracy: 98.9%, 100 Estimators, Balanced Class Weights
                       </Typography>
-                      <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600, display: 'block' }}>
                         Outcome: Accurately classifies multi-variable inversion interactions.
                       </Typography>
                     </Paper>
@@ -1283,7 +1512,7 @@ ${
                       <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.4 }}>
                         k = 3, Silhouette Score: 0.265
                       </Typography>
-                      <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600, display: 'block' }}>
                         Outcome: Successfully segments Stagnant Inversion vs Maritime Dispersal profiles.
                       </Typography>
                     </Paper>
@@ -1293,8 +1522,8 @@ ${
 
               {/* Right Column: Dual-Platform Engineering Architecture */}
               <Box>
-                <Card sx={{ p: { xs: 2.5, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+                <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
                     Dual-Platform Architecture (Python + KNIME)
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
@@ -1306,7 +1535,7 @@ ${
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
                         Phase 1: Ingestion & Relational Merging
                       </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55, fontSize: '0.88rem' }}>
                         20-minute interval readings from Luddenham station merged via a Left Outer Join with the official NSW Public Holidays (2019–2023) calendar, achieving zero data loss.
                       </Typography>
                     </Paper>
@@ -1315,7 +1544,7 @@ ${
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
                         Phase 2: KNN Imputation & Leakage Prevention
                       </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55, fontSize: '0.88rem' }}>
                         Applied 5-Nearest Neighbors (k-NN, k=5) spatial imputation to preserve multidimensional variance. Explicitly dropped continuous PM2.5 prior to classification to prevent leakage.
                       </Typography>
                     </Paper>
@@ -1324,7 +1553,7 @@ ${
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
                         Phase 3: Full-Stack FastAPI & D3.js Deployment
                       </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55, fontSize: '0.88rem' }}>
                         Serialized scaler.pkl and rf_model.pkl loaded in FastAPI backend with Pydantic validation, consumed asynchronously by this responsive React frontend with D3.js visualization.
                       </Typography>
                     </Paper>
@@ -1340,88 +1569,466 @@ ${
         {/* ============================================================== */}
         {activeTab === 4 && (
           <Box className="fade-in">
+            {/* Page Header */}
             <Box sx={{ mb: 3 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.4rem', sm: '1.8rem', md: '2.1rem' } }}>
                 School Health & Asthma Emergency SOP
               </Typography>
-              <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+              <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
                 Operational guidelines compliant with Asthma Australia and the NSW Department of Education Student Health Policy.
               </Typography>
             </Box>
 
-            <Grid container spacing={3.5}>
-              {/* 4-Step Asthma First Aid Protocol */}
-              <Grid item xs={12} md={7}>
-                <Card sx={{ p: 3.5, height: '100%' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, color: 'error.main' }}>
-                    4-Step First Aid Protocol for Asthma Attacks on Playground
+            {/* Top Quick Emergency Action Banner (Full Width) */}
+            <Card
+              sx={{
+                p: { xs: 2, sm: 3 },
+                mb: 3,
+                borderLeft: 8,
+                borderColor: 'error.main',
+                backgroundColor: darkMode ? '#131e32' : '#ffffff'
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, flexWrap: 'wrap', gap: 2 }}>
+                <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: 300 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <Chip
+                      size="small"
+                      icon={<EmergencyIcon fontSize="small" />}
+                      label="IMMEDIATE ACTION REQUIRED"
+                      color="error"
+                      sx={{ fontWeight: 800, fontSize: '0.75rem', px: 0.5 }}
+                    />
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                      Playground First Aid Protocol
+                    </Typography>
+                  </Box>
+                  <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5, fontSize: { xs: '1.15rem', sm: '1.35rem' } }}>
+                    4x4 Asthma First Aid Rule: Sit Upright, 4 Puffs, 4 Minutes
                   </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55 }}>
+                    Never leave an asthmatic student unattended during a respiratory attack. Administer blue reliever through a spacer immediately.
+                  </Typography>
+                </Box>
 
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    className="emergency-action"
+                    onClick={() => setEmergencyDialogOpen(true)}
+                    startIcon={<EmergencyIcon />}
+                    sx={{ borderRadius: 2, fontWeight: 700, px: 2.5, width: { xs: '100%', sm: 'auto' }, minHeight: 42 }}
+                  >
+                    Open Emergency SOP Modal
+                  </Button>
+                  <Button
+                    component="a"
+                    href="tel:000"
+                    variant="outlined"
+                    color="error"
+                    startIcon={<PhoneIcon />}
+                    sx={{ borderRadius: 2, fontWeight: 700, px: 2, width: { xs: '100%', sm: 'auto' }, minHeight: 42 }}
+                  >
+                    Call 000 Ambulance
+                  </Button>
+                </Box>
+              </Box>
+            </Card>
+
+            {/* ROW 1: Symmetrical Two-Column CSS Grid (First Aid Protocol vs PE Directives) */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                gap: 3,
+                alignItems: 'stretch',
+                mb: 3
+              }}
+            >
+              {/* Left Column: 4-Step Asthma First Aid Protocol */}
+              <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1 }}>
+                    <Box
+                      sx={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 2,
+                        backgroundColor: 'error.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        flexShrink: 0
+                      }}
+                    >
+                      <EmergencyIcon fontSize="small" />
+                    </Box>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                        4-Step Asthma First Aid Protocol
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Asthma Australia Standard Procedure for Schools
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, my: 2 }}>
                     {[
-                      { step: 'Step 1', title: 'Sit the child upright', text: 'Be calm and reassuring. Do not leave the child alone. Loosen tight clothing around neck.' },
-                      { step: 'Step 2', title: 'Give 4 separate puffs of blue/grey reliever', text: 'Shake the inhaler puff canister. Put 1 puff into the spacer. Take 4 breaths from spacer. Repeat until 4 puffs given.' },
-                      { step: 'Step 3', title: 'Wait 4 minutes', text: 'If there is no improvement, give 4 more separate puffs as in Step 2. Keep the child seated quietly.' },
-                      { step: 'Step 4', title: 'If no improvement, Call 000 immediately', text: 'Dial 000 for an ambulance immediately. Keep giving 4 separate puffs every 4 minutes until emergency paramedics arrive.' }
+                      { step: 'Step 1', title: 'Sit the child upright', text: 'Be calm and reassuring. Do not leave the child alone. Loosen tight clothing around their neck and chest.' },
+                      { step: 'Step 2', title: 'Give 4 separate puffs of blue/grey reliever', text: 'Shake the inhaler canister. Insert 1 puff into spacer. Take 4 breaths from spacer. Repeat until 4 puffs are completed.' },
+                      { step: 'Step 3', title: 'Wait 4 minutes', text: 'If there is no breathing improvement, give 4 more separate puffs as in Step 2. Keep the child seated quietly.' },
+                      { step: 'Step 4', title: 'If no improvement, Call 000 immediately', text: 'Dial 000 for an emergency ambulance. Continue administering 4 separate puffs every 4 minutes until paramedics arrive.' }
                     ].map((s, idx) => (
-                      <Paper key={idx} variant="outlined" sx={{ p: 2, borderRadius: 2, borderLeft: 4, borderColor: 'error.main' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'error.main' }}>
+                      <Paper
+                        key={idx}
+                        variant="outlined"
+                        sx={{
+                          p: 1.8,
+                          borderRadius: 2,
+                          borderLeft: 4,
+                          borderColor: 'error.main',
+                          backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.3)' : '#ffffff'
+                        }}
+                      >
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'error.main', fontSize: '0.9rem' }}>
                           {s.step}: {s.title}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.4, fontSize: '0.86rem', lineHeight: 1.5 }}>
                           {s.text}
                         </Typography>
                       </Paper>
                     ))}
                   </Box>
-                </Card>
-              </Grid>
-
-              {/* Contact Health Officer & Inhaler Audit */}
-              <Grid item xs={12} md={5}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <Card sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.5 }}>
-                      Contact School Health Officer
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
-                      Notify the on-duty school nurse or PE department regarding air quality concerns or individual student symptoms.
-                    </Typography>
-
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      color="primary"
-                      onClick={() => setContactDialogOpen(true)}
-                    >
-                      Open Health Contact Form
-                    </Button>
-                  </Card>
-
-                  <Card sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.5 }}>
-                      Emergency Hospital & Poison Lines
-                    </Typography>
-                    <List dense sx={{ p: 0 }}>
-                      <ListItem disablePadding sx={{ py: 0.8 }}>
-                        <ListItemText primary="Emergency Services (Ambulance/Police)" secondary="000 (Urgent life-threatening)" />
-                      </ListItem>
-                      <Divider />
-                      <ListItem disablePadding sx={{ py: 0.8 }}>
-                        <ListItemText primary="NSW Poisons Information Centre" secondary="13 11 26" />
-                      </ListItem>
-                      <Divider />
-                      <ListItem disablePadding sx={{ py: 0.8 }}>
-                        <ListItemText primary="Asthma Australia Helpline" secondary="1800 ASTHMA (1800 278 462)" />
-                      </ListItem>
-                    </List>
-                  </Card>
                 </Box>
-              </Grid>
-            </Grid>
+
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="error"
+                  startIcon={<EmergencyIcon />}
+                  onClick={() => setEmergencyDialogOpen(true)}
+                  sx={{ borderRadius: 2, fontWeight: 700, mt: 1, py: 1 }}
+                >
+                  View Full-Screen Emergency SOP
+                </Button>
+              </Card>
+
+              {/* Right Column: Playground Duty & PE Activity Directives */}
+              <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 1 }}>
+                    <Box
+                      sx={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 2,
+                        backgroundColor: 'primary.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        flexShrink: 0
+                      }}
+                    >
+                      <HealthIcon fontSize="small" />
+                    </Box>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                        Playground Duty & PE Directives
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        NSW Department of Education Activity Guidance
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, my: 2 }}>
+                    {[
+                      {
+                        badge: 'SUPERVISION',
+                        color: 'primary',
+                        title: 'Pre-Recess Asthmatic Student Verification',
+                        text: 'Duty teachers verify that students on the Asthma Register have their reliever puffers and spacers readily accessible before entering the oval.'
+                      },
+                      {
+                        badge: 'CAUTION TIER',
+                        color: 'warning',
+                        title: 'Exercise Modification (PM2.5: 25–50 µg/m³)',
+                        text: 'Restrict intense cardiovascular endurance drills (beep tests, interval sprints). Transition students to low-intensity technical skills drills.'
+                      },
+                      {
+                        badge: 'UNSAFE TIER',
+                        color: 'error',
+                        title: 'Indoor Facility Relocation (PM2.5 > 50 µg/m³)',
+                        text: 'Immediately suspend outdoor playtime and sports. Escort students into air-conditioned, filtered indoor gymnasiums or the school library.'
+                      },
+                      {
+                        badge: 'FACILITY',
+                        color: 'info',
+                        title: 'Classroom Air Recirculation Management',
+                        text: 'Ensure all external windows and doors remain closed during inversion events. Verify HVAC systems operate in indoor recirculation mode.'
+                      }
+                    ].map((d, idx) => (
+                      <Paper
+                        key={idx}
+                        variant="outlined"
+                        sx={{
+                          p: 1.8,
+                          borderRadius: 2,
+                          borderLeft: 4,
+                          borderColor: `${d.color}.main`,
+                          backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.3)' : '#ffffff'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.4 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '0.9rem' }}>
+                            {d.title}
+                          </Typography>
+                          <Chip size="small" label={d.badge} color={d.color} variant="outlined" sx={{ fontWeight: 800, fontSize: '0.65rem', height: 20 }} />
+                        </Box>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.86rem', lineHeight: 1.5 }}>
+                          {d.text}
+                        </Typography>
+                      </Paper>
+                    ))}
+                  </Box>
+                </Box>
+
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => setExportDialogOpen(true)}
+                  sx={{ borderRadius: 2, fontWeight: 700, mt: 1, py: 1 }}
+                >
+                  Export Duty Teacher Protocol
+                </Button>
+              </Card>
+            </Box>
+
+            {/* ROW 2: Symmetrical Two-Column CSS Grid (Hotline Directory vs Health Officer Form) */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                gap: 3,
+                alignItems: 'stretch'
+              }}
+            >
+              {/* Left Column: Emergency Hotline Directory */}
+              <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                    Emergency Hotline Directory (Tap to Call)
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                    Direct phone lines for immediate emergency dispatch, medical advice, and toxic exposure support.
+                  </Typography>
+
+                  <List dense sx={{ p: 0 }}>
+                    <ListItem disablePadding sx={{ mb: 1 }}>
+                      <ListItemButton
+                        component="a"
+                        href="tel:000"
+                        sx={{
+                          borderRadius: 2,
+                          px: 2,
+                          py: 1.2,
+                          backgroundColor: darkMode ? 'rgba(211,47,47,0.12)' : '#ffebee',
+                          border: 1,
+                          borderColor: 'error.main'
+                        }}
+                      >
+                        <ListItemIcon sx={{ color: 'error.main', minWidth: 40 }}>
+                          <PhoneIcon fontSize="medium" />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="000 — Emergency Services (Ambulance / Police)"
+                          secondary="Tap to call immediately for severe asthma attacks or respiratory failure."
+                          primaryTypographyProps={{ fontWeight: 800, color: 'error.main', fontSize: '0.92rem' }}
+                          secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+
+                    <ListItem disablePadding sx={{ mb: 1 }}>
+                      <ListItemButton
+                        component="a"
+                        href="tel:131126"
+                        sx={{
+                          borderRadius: 2,
+                          px: 2,
+                          py: 1.2,
+                          border: 1,
+                          borderColor: 'divider',
+                          backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.3)' : '#f8fafc'
+                        }}
+                      >
+                        <ListItemIcon sx={{ color: 'primary.main', minWidth: 40 }}>
+                          <PhoneIcon fontSize="medium" />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="13 11 26 — NSW Poisons Information Centre"
+                          secondary="24/7 specialist medical advice on hazardous smoke and particulate inhalation."
+                          primaryTypographyProps={{ fontWeight: 700, fontSize: '0.9rem' }}
+                          secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+
+                    <ListItem disablePadding sx={{ mb: 1 }}>
+                      <ListItemButton
+                        component="a"
+                        href="tel:1800278462"
+                        sx={{
+                          borderRadius: 2,
+                          px: 2,
+                          py: 1.2,
+                          border: 1,
+                          borderColor: 'divider',
+                          backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.3)' : '#f8fafc'
+                        }}
+                      >
+                        <ListItemIcon sx={{ color: 'primary.main', minWidth: 40 }}>
+                          <PhoneIcon fontSize="medium" />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="1800 ASTHMA (1800 278 462) — Asthma Australia"
+                          secondary="Free helpline for school asthma management guidelines and clinical support."
+                          primaryTypographyProps={{ fontWeight: 700, fontSize: '0.9rem' }}
+                          secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  </List>
+                </Box>
+
+                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, mt: 1, backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.2)' : '#f1f5f9' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 600 }}>
+                    Internal School Intercom: Dial Extension <strong>402</strong> for the Front Office & Nurse Station.
+                  </Typography>
+                </Paper>
+              </Card>
+
+              {/* Right Column: Contact School Health Officer */}
+              <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+                    Notify School Health & Safety Officer
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                    Direct dispatch system to notify the on-duty school nurse or PE department regarding air quality symptoms.
+                  </Typography>
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 2.5 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
+                        ON-DUTY NURSE
+                      </Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'success.main' }}>
+                        Station Clinic (Bldg B)
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Available 8:00–16:00
+                      </Typography>
+                    </Paper>
+
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
+                        HVAC AIR FILTERS
+                      </Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                        HEPA Active (Recirc)
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Classrooms 101–124
+                      </Typography>
+                    </Paper>
+                  </Box>
+
+                  <Paper variant="outlined" sx={{ p: 1.8, borderRadius: 2, mb: 2.5, borderLeft: 4, borderColor: 'primary.main' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                      When to submit an incident dispatch:
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.86rem', lineHeight: 1.5 }}>
+                      • A student reports shortness of breath or persistent coughing during recess.<br />
+                      • Visible hazard reduction burn smoke is observed drifting across the oval.<br />
+                      • First aid kit replacement or spacer replenishment is required.
+                    </Typography>
+                  </Paper>
+                </Box>
+
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  className="primary-action"
+                  onClick={() => setContactDialogOpen(true)}
+                  sx={{ minHeight: 46, borderRadius: 2, fontWeight: 700, py: 1.2 }}
+                >
+                  Open Health Contact & Incident Form
+                </Button>
+              </Card>
+            </Box>
           </Box>
         )}
       </Container>
+
+      {/* ================================================================ */}
+      {/* MOBILE BOTTOM NAVIGATION BAR                                     */}
+      {/* ================================================================ */}
+      <Paper
+        elevation={4}
+        sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1100,
+          display: { xs: 'block', md: 'none' },
+          borderTop: 1,
+          borderColor: 'divider',
+          backgroundColor: darkMode ? 'rgba(19, 30, 50, 0.96)' : 'rgba(255, 255, 255, 0.96)',
+          backdropFilter: 'blur(12px)'
+        }}
+      >
+        <BottomNavigation
+          value={activeTab}
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          showLabels
+          sx={{
+            backgroundColor: 'transparent',
+            height: 62,
+            '& .MuiBottomNavigationAction-root': {
+              minWidth: 0,
+              px: 0.5,
+              py: 0.5,
+              color: 'text.secondary',
+              '&.Mui-selected': {
+                color: 'primary.main',
+                fontWeight: 700
+              }
+            },
+            '& .MuiBottomNavigationAction-label': {
+              fontSize: '0.68rem',
+              '&.Mui-selected': {
+                fontSize: '0.72rem',
+                fontWeight: 800
+              }
+            }
+          }}
+        >
+          <BottomNavigationAction label="Overview" icon={<DashboardIcon fontSize="small" />} />
+          <BottomNavigationAction label="Simulator" icon={<TuneIcon fontSize="small" />} />
+          <BottomNavigationAction label="Trends" icon={<TrendingUpIcon fontSize="small" />} />
+          <BottomNavigationAction label="Model" icon={<PsychologyIcon fontSize="small" />} />
+          <BottomNavigationAction label="SOP" icon={<HealthIcon fontSize="small" />} />
+        </BottomNavigation>
+      </Paper>
 
       {/* ================================================================ */}
       {/* PROFESSIONAL FOOTER                                              */}
@@ -1430,14 +2037,15 @@ ${
         component="footer"
         sx={{
           py: 4,
+          pb: { xs: 10, md: 4 },
           borderTop: 1,
           borderColor: 'divider',
           backgroundColor: darkMode ? '#070d17' : '#f1f5f9'
         }}
       >
-        <Container maxWidth="lg" sx={{ px: { xs: 2.5, sm: 4, md: 5 } }}>
-          <Grid container spacing={3} alignItems="center" justifyContent="space-between">
-            <Grid item xs={12} md={6}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ maxWidth: { xs: '100%', md: '65%' } }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary' }}>
                 COS30049 Computing Technology Innovation Project · Assignment 3
               </Typography>
@@ -1447,8 +2055,8 @@ ${
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                 Meteorological data sourced from NSW Government SWAQ and Australian Public Holidays (data.gov.au).
               </Typography>
-            </Grid>
-            <Grid item xs={12} md={6} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Button size="small" color="inherit" onClick={() => setContactDialogOpen(true)}>
                 Support & Contact
               </Button>
@@ -1458,22 +2066,30 @@ ${
               <Button size="small" color="inherit" onClick={() => setActiveTab(3)}>
                 Algorithm Specs
               </Button>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </Container>
       </Box>
 
       {/* ================================================================ */}
-      {/* DIALOG 1: ASTHMA EMERGENCY SOP                                   */}
+      {/* DIALOG 1: ASTHMA EMERGENCY SOP (Responsive on All Devices)       */}
       {/* ================================================================ */}
       <Dialog
         open={emergencyDialogOpen}
         onClose={() => setEmergencyDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
       >
-        <DialogTitle sx={{ fontWeight: 800, color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <EmergencyIcon /> Asthma First Aid Emergency Protocol
+        <DialogTitle sx={{ fontWeight: 800, color: 'error.main', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EmergencyIcon /> Asthma First Aid Emergency Protocol
+          </Box>
+          {isMobile && (
+            <IconButton onClick={() => setEmergencyDialogOpen(false)} size="small" aria-label="Close dialog">
+              <CloseIcon />
+            </IconButton>
+          )}
         </DialogTitle>
         <DialogContent dividers>
           <DialogContentText sx={{ mb: 2, color: 'text.primary', fontWeight: 600 }}>
@@ -1492,26 +2108,45 @@ ${
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: 'error.main', backgroundColor: darkMode ? 'rgba(211,47,47,0.1)' : '#ffebee' }}>
               <strong>4. If still no improvement: CALL 000 IMMEDIATELY.</strong> Keep administering 4 puffs every 4 minutes until ambulance arrives.
             </Paper>
+
+            <Button
+              component="a"
+              href="tel:000"
+              variant="contained"
+              color="error"
+              size="large"
+              className="emergency-action"
+              startIcon={<PhoneIcon />}
+              sx={{ fontWeight: 800, py: 1.2, mt: 1, borderRadius: 2 }}
+            >
+              Call 000 (Emergency Ambulance)
+            </Button>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEmergencyDialogOpen(false)} variant="contained" color="primary">
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2 } }}>
+          <Button onClick={() => setEmergencyDialogOpen(false)} variant="outlined" color="inherit">
             Acknowledge & Close
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* ================================================================ */}
-      {/* DIALOG 2: EXPORT SAFETY BRIEFING REPORT                          */}
+      {/* DIALOG 2: EXPORT SAFETY BRIEFING REPORT (Responsive)             */}
       {/* ================================================================ */}
       <Dialog
         open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        fullScreen={isMobile}
       >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          Export Daily Recess Safety Briefing
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>Export Daily Recess Safety Briefing</span>
+          {isMobile && (
+            <IconButton onClick={() => setExportDialogOpen(false)} size="small" aria-label="Close dialog">
+              <CloseIcon />
+            </IconButton>
+          )}
         </DialogTitle>
         <DialogContent dividers>
           <DialogContentText sx={{ mb: 2 }}>
@@ -1523,7 +2158,7 @@ ${
               p: 2,
               borderRadius: 2,
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '0.8rem',
+              fontSize: { xs: '0.72rem', sm: '0.8rem' },
               backgroundColor: darkMode ? '#0f172a' : '#f8fafc',
               maxHeight: 280,
               overflowY: 'auto',
@@ -1549,7 +2184,7 @@ Directive: ${
 Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
           </Paper>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Button onClick={() => setExportDialogOpen(false)} color="inherit">
             Cancel
           </Button>
@@ -1560,16 +2195,22 @@ Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
       </Dialog>
 
       {/* ================================================================ */}
-      {/* DIALOG 3: CONTACT HEALTH OFFICER / NURSE                         */}
+      {/* DIALOG 3: CONTACT HEALTH OFFICER / NURSE (Responsive)            */}
       {/* ================================================================ */}
       <Dialog
         open={contactDialogOpen}
         onClose={() => setContactDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
       >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          Contact School Health & Safety Officer
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>Contact School Health & Safety Officer</span>
+          {isMobile && (
+            <IconButton onClick={() => setContactDialogOpen(false)} size="small" aria-label="Close dialog">
+              <CloseIcon />
+            </IconButton>
+          )}
         </DialogTitle>
         <DialogContent dividers>
           <DialogContentText sx={{ mb: 2 }}>
@@ -1619,7 +2260,7 @@ Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
             />
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Button onClick={() => setContactDialogOpen(false)} color="inherit" disabled={contactSubmitting}>
             Cancel
           </Button>
@@ -1627,6 +2268,7 @@ Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
             onClick={handleContactSubmit}
             variant="contained"
             color="primary"
+            className="primary-action"
             disabled={contactSubmitting}
             startIcon={contactSubmitting ? <CircularProgress size={18} color="inherit" /> : null}
           >
@@ -1641,6 +2283,7 @@ Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
         autoHideDuration={4500}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ mb: { xs: 7, md: 0 } }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}

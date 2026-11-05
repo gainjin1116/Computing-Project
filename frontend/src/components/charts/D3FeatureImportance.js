@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 
 const FEATURE_DESCRIPTIONS = {
@@ -25,30 +25,30 @@ const FRIENDLY_NAMES = {
   LUDD_Rain: 'Precipitation (Rain)'
 };
 
+// Static default fallback data to ensure stable references across re-renders
+const DEFAULT_DATA = {
+  LUDD_RH: 0.2976,
+  LUDD_T: 0.2051,
+  LUDD_p: 0.1621,
+  LUDD_wd: 0.0917,
+  Hour: 0.0862,
+  DayOfWeek: 0.0843,
+  LUDD_ws: 0.0677,
+  Is_Holiday: 0.0048,
+  LUDD_Rain: 0.0005
+};
+
 export default function D3FeatureImportance({ data, darkMode = false }) {
   const svgRef = useRef(null);
   const [sortBy, setSortBy] = useState('importance'); // 'importance' or 'name'
   const [hoveredFeature, setHoveredFeature] = useState(null);
 
-  // Default fallback data if API is not yet loaded
-  const defaultData = {
-    LUDD_RH: 0.2976,
-    LUDD_T: 0.2051,
-    LUDD_p: 0.1621,
-    LUDD_wd: 0.0917,
-    Hour: 0.0862,
-    DayOfWeek: 0.0843,
-    LUDD_ws: 0.0677,
-    Is_Holiday: 0.0048,
-    LUDD_Rain: 0.0005
-  };
+  const currentData = useMemo(() => {
+    return data && Object.keys(data).length > 0 ? data : DEFAULT_DATA;
+  }, [data]);
 
-  const currentData = data && Object.keys(data).length > 0 ? data : defaultData;
-
-  useEffect(() => {
-    if (!svgRef.current) return;
-
-    let items = Object.keys(currentData).map((key) => ({
+  const items = useMemo(() => {
+    const list = Object.keys(currentData).map((key) => ({
       feature: key,
       name: FRIENDLY_NAMES[key] || key,
       value: currentData[key],
@@ -56,12 +56,17 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
     }));
 
     if (sortBy === 'importance') {
-      items.sort((a, b) => b.value - a.value);
+      list.sort((a, b) => b.value - a.value);
     } else {
-      items.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => a.name.localeCompare(b.name));
     }
+    return list;
+  }, [currentData, sortBy]);
 
-    const margin = { top: 15, right: 60, bottom: 35, left: 160 };
+  useEffect(() => {
+    if (!svgRef.current) return;
+
+    const margin = { top: 15, right: 55, bottom: 35, left: 145 };
     const width = 560;
     const height = 320;
 
@@ -70,6 +75,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
 
     const g = svg
       .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
       .append('g')
       .attr('transform', `translate(${margin.left}, ${margin.top})`);
 
@@ -98,7 +104,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
       .attr('stroke-opacity', 0.1)
       .attr('color', darkMode ? '#94a3b8' : '#cbd5e1');
 
-    // Bars with gradients
+    // Gradient definition
     const defs = svg.append('defs');
     const grad = defs.append('linearGradient')
       .attr('id', 'barGrad')
@@ -108,7 +114,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
     grad.append('stop').attr('offset', '100%').attr('stop-color', '#2563eb');
 
     const bars = g.selectAll('rect')
-      .data(items)
+      .data(items, d => d.feature)
       .enter()
       .append('rect')
       .attr('y', d => y(d.feature))
@@ -117,17 +123,18 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
       .attr('width', 0)
       .attr('rx', 4)
       .attr('fill', 'url(#barGrad)')
-      .style('cursor', 'pointer');
+      .style('cursor', 'pointer')
+      .style('transition', 'opacity 0.15s ease');
 
-    // Bar animation
+    // Bar enter animation
     bars.transition()
-      .duration(800)
-      .delay((_, i) => i * 40)
+      .duration(700)
+      .delay((_, i) => i * 30)
       .attr('width', d => x(d.value));
 
     // Value percentage labels
     g.selectAll('.val-label')
-      .data(items)
+      .data(items, d => d.feature)
       .enter()
       .append('text')
       .attr('class', 'val-label')
@@ -138,13 +145,13 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
       .attr('font-weight', '700')
       .text(d => `${(d.value * 100).toFixed(1)}%`);
 
-    // Y Axis labels (friendly names)
+    // Y Axis labels
     const yAxis = g.append('g')
       .call(d3.axisLeft(y).tickFormat(f => FRIENDLY_NAMES[f] || f));
 
     yAxis.selectAll('text')
       .attr('fill', darkMode ? '#cbd5e1' : '#334155')
-      .attr('font-size', '12px')
+      .attr('font-size', '11px')
       .attr('font-weight', '600');
 
     yAxis.select('.domain').attr('color', darkMode ? '#475569' : '#cbd5e1');
@@ -160,46 +167,48 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
 
     xAxis.select('.domain').attr('color', darkMode ? '#475569' : '#cbd5e1');
 
-    // Hover interactions
-    bars
-      .on('mouseenter', function (_, d) {
-        d3.select(this)
-          .transition()
-          .duration(150)
-          .attr('fill', '#1d4ed8')
-          .attr('opacity', 0.95);
-        setHoveredFeature(d);
-      })
-      .on('mouseleave', function () {
-        d3.select(this)
-          .transition()
-          .duration(150)
-          .attr('fill', 'url(#barGrad)')
-          .attr('opacity', 1);
-        setHoveredFeature(null);
-      });
+    // Non-shuttering hover handlers
+    const handleSelect = function (_, d) {
+      bars.attr('opacity', 0.65).attr('fill', 'url(#barGrad)');
+      d3.select(this)
+        .raise()
+        .attr('opacity', 1)
+        .attr('fill', '#1d4ed8');
+      setHoveredFeature(d);
+    };
 
-  }, [currentData, sortBy, darkMode]);
+    const handleDeselect = function () {
+      bars.attr('opacity', 1).attr('fill', 'url(#barGrad)');
+      setHoveredFeature(null);
+    };
+
+    bars
+      .on('mouseenter', handleSelect)
+      .on('touchstart', handleSelect)
+      .on('click', handleSelect)
+      .on('mouseleave', handleDeselect);
+
+  }, [items, darkMode]);
 
   return (
     <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ fontSize: '13px', color: darkMode ? '#94a3b8' : '#64748b' }}>
-          Gini feature importance derived from 100-estimator Random Forest
+        <div style={{ fontSize: '12px', color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500 }}>
+          Gini feature importance (100-tree Random Forest)
         </div>
-        <div>
+        <div style={{ display: 'flex', gap: '6px' }}>
           <button
             onClick={() => setSortBy('importance')}
             style={{
-              padding: '4px 10px',
-              fontSize: '12px',
+              padding: '5px 10px',
+              fontSize: '11px',
               fontWeight: 600,
               borderRadius: '6px',
               border: '1px solid #cbd5e1',
               backgroundColor: sortBy === 'importance' ? '#2563eb' : 'transparent',
               color: sortBy === 'importance' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
               cursor: 'pointer',
-              marginRight: '6px'
+              minHeight: '30px'
             }}
           >
             Sort by Impact
@@ -207,14 +216,15 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
           <button
             onClick={() => setSortBy('name')}
             style={{
-              padding: '4px 10px',
-              fontSize: '12px',
+              padding: '5px 10px',
+              fontSize: '11px',
               fontWeight: 600,
               borderRadius: '6px',
               border: '1px solid #cbd5e1',
               backgroundColor: sortBy === 'name' ? '#2563eb' : 'transparent',
               color: sortBy === 'name' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              minHeight: '30px'
             }}
           >
             Alphabetical
@@ -222,27 +232,31 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
         </div>
       </div>
 
-      <svg ref={svgRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
+      <div style={{ width: '100%', overflowX: 'hidden' }}>
+        <svg ref={svgRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
+      </div>
 
-      {hoveredFeature ? (
-        <div
-          style={{
-            marginTop: '8px',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            backgroundColor: darkMode ? '#1e293b' : '#eff6ff',
-            border: '1px solid #93c5fd',
-            fontSize: '13px',
-            color: darkMode ? '#bfdbfe' : '#1e3a8a'
-          }}
-        >
-          <strong>{hoveredFeature.name}:</strong> {hoveredFeature.desc}
-        </div>
-      ) : (
-        <div style={{ marginTop: '8px', fontSize: '12px', color: darkMode ? '#64748b' : '#94a3b8', fontStyle: 'italic' }}>
-          Tip: Hover over any bar to see its atmospheric physics rationale.
-        </div>
-      )}
+      {/* Stable minHeight container to completely prevent vertical displacement when displaying details */}
+      <div style={{ minHeight: '52px', marginTop: '8px' }}>
+        {hoveredFeature ? (
+          <div
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              backgroundColor: darkMode ? '#1e293b' : '#eff6ff',
+              border: '1px solid #93c5fd',
+              fontSize: '12px',
+              color: darkMode ? '#bfdbfe' : '#1e3a8a'
+            }}
+          >
+            <strong>{hoveredFeature.name}:</strong> {hoveredFeature.desc}
+          </div>
+        ) : (
+          <div style={{ fontSize: '11px', color: darkMode ? '#64748b' : '#94a3b8', fontStyle: 'italic', paddingTop: '6px' }}>
+            Tip: Tap or hover over any bar to view its atmospheric rationale.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

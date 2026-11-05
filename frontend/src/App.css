@@ -5,12 +5,19 @@
   box-sizing: border-box;
 }
 
-body {
+html, body {
   margin: 0;
   padding: 0;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* iOS Safe Area Insets for Edge-to-Edge Mobile Screens */
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Glassmorphism & Modern Card Styling */
@@ -22,34 +29,120 @@ body {
 }
 
 .hover-card {
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.hover-card:hover {
-  transform: translateY(-3px);
+@media (hover: hover) and (pointer: fine) {
+  .hover-card:hover {
+    transform: translateY(-3px);
+  }
 }
 
-/* Subtle Pulse Indicator for Live Backend Status */
+/* ==========================================================================
+   2. ANIMATED LIVE STATUS INDICATORS
+   ========================================================================== */
+
 @keyframes pulseGlow {
   0% {
-    box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7);
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
   }
   70% {
-    box-shadow: 0 0 0 8px rgba(46, 125, 50, 0);
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(46, 125, 50, 0);
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
   }
 }
 
-.live-pulse {
-  animation: pulseGlow 2s infinite;
+.live-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  display: inline-block;
+  animation: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  flex-shrink: 0;
 }
 
-/* Chart Container Enhancements */
+.fallback-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-pulse-dot {
+    animation: none;
+    box-shadow: 0 0 4px rgba(34, 197, 94, 0.6);
+  }
+}
+
+/* ==========================================================================
+   4. PREMIUM BUTTON GLOW AND MICRO-INTERACTIONS
+   ========================================================================== */
+
+.primary-action {
+  box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.emergency-action {
+  box-shadow: 0 4px 14px rgba(211, 47, 47, 0.35) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primary-action:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(25, 118, 210, 0.45) !important;
+  }
+  .emergency-action:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(211, 47, 47, 0.45) !important;
+  }
+}
+
+.primary-action:active:not(:disabled),
+.emergency-action:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary-action,
+  .emergency-action {
+    transition: none !important;
+    transform: none !important;
+  }
+  .primary-action:hover,
+  .emergency-action:hover {
+    transform: none !important;
+  }
+}
+
+/* Chart Container & Touch Enhancements */
 .chart-card {
   position: relative;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch Device Friendly Sizing */
+@media (max-width: 600px) {
+  /* Prevent iOS automatic input zooming */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  
+  /* Smooth touch scrolling */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* Smooth Fade In */
@@ -70,7 +163,7 @@ body {
 
 /* Print Styles for Export Briefing */
 @media print {
-  header, footer, nav, button, .no-print {
+  header, footer, nav, button, .no-print, .MuiBottomNavigation-root {
     display: none !important;
   }
   body {

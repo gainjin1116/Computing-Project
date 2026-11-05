@@ -22,6 +22,8 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+
 // Preset configurations based on Sydney weather archetypes
 const PRESETS = {
   calm: {
@@ -46,7 +48,7 @@ const PRESETS = {
   }
 };
 
-export default function PredictForm({ onPredict, onBackendStatusChange }) {
+export default function PredictForm({ onPredict, onBackendStatusChange, onLoadingChange }) {
   const [formData, setFormData] = useState({ ...PRESETS.calm.data });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -64,12 +66,6 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
 
   const handleSliderChange = (name) => (_, newValue) => {
     setFormData(prev => ({ ...prev, [name]: newValue }));
-  };
-
-  const applyPreset = (key) => {
-    setFormData({ ...PRESETS[key].data });
-    setErrors({});
-    setInfoMessage(`Loaded preset: "${PRESETS[key].name}"`);
   };
 
   const validate = () => {
@@ -93,7 +89,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
   const calculateLocalPrediction = (data) => {
     const rush = Math.exp(-Math.pow((data.hour - 8) / 2.5, 2)) + 0.6 * Math.exp(-Math.pow((data.hour - 18) / 2.5, 2));
     const baseEstimate = 12 + 1.6 * Math.max(0, data.temp - 20) - 0.25 * (data.humidity - 50) - 0.3 * data.wind_speed + 0.6 * (data.pressure - 1013) - 6 * data.rain + 5 * rush - (data.is_holiday ? 2 : 0);
-    const pm25 = Math.max(1, Math.min(130, Math.round(baseEstimate * 10) / 10));
+    let pm25 = Math.max(1, Math.min(130, Math.round(baseEstimate * 10) / 10));
 
     let prediction = 0;
     let label = 'Safe';
@@ -109,7 +105,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
       probabilities = [0.15, 0.72, 0.13];
     }
 
-    // Safety rule override for extreme atmospheric conditions
+    // Safety rule override for extreme atmospheric conditions (synchronized with backend)
     let overrideApplied = false;
     if (data.temp > 35 && data.humidity > 75 && data.wind_speed < 1.5) {
       prediction = 2;
@@ -123,6 +119,19 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
       overrideApplied = true;
     }
 
+    // Strictly synchronize estimated PM2.5 with health safety classification:
+    // Under Australian NEPM & NSW Health guidelines:
+    // - Safe: 0 to 25 µg/m³ (Green)
+    // - Caution: 25 to 50 µg/m³ (Orange)
+    // - Unsafe: 50+ µg/m³ (Red)
+    if (prediction === 2) {
+      pm25 = Math.max(52.5, pm25);
+    } else if (prediction === 1) {
+      pm25 = Math.max(26.0, Math.min(48.5, pm25));
+    } else {
+      pm25 = Math.min(24.5, pm25);
+    }
+
     return {
       prediction,
       label,
@@ -133,38 +142,26 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     };
   };
 
-  const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (!validate()) return;
-
-    // Ensure all numeric values are properly cast
-    const submissionData = {
-      ...formData,
-      temp: Number(formData.temp),
-      humidity: Number(formData.humidity),
-      wind_speed: Number(formData.wind_speed),
-      rain: Number(formData.rain),
-      pressure: Number(formData.pressure)
-    };
-
+  // Reusable core prediction executor with live-backend and local fallback sync
+  const executePrediction = async (submissionData) => {
     setLoading(true);
+    if (onLoadingChange) onLoadingChange(true);
     setInfoMessage(null);
 
     try {
-      // Attempt live request to FastAPI backend
-      const response = await axios.post('http://127.0.0.1:8000/predict', submissionData, { timeout: 2500 });
+      const response = await axios.post(`${API_BASE_URL}/predict`, submissionData, { timeout: 2500 });
       if (onBackendStatusChange) onBackendStatusChange(true);
 
       const localEst = calculateLocalPrediction(submissionData);
       onPredict({
         ...response.data,
-        estimated_pm25: localEst.estimated_pm25,
-        is_fallback: false,
+        estimated_pm25: response.data.estimated_pm25 ?? localEst.estimated_pm25,
+        is_fallback: response.data.is_fallback ?? false,
         input_params: { ...submissionData }
       });
       setInfoMessage('Prediction successfully retrieved from FastAPI backend server (Live AI Model).');
     } catch (err) {
-      console.warn('FastAPI backend not reachable; switching to verified local model.', err);
+      console.warn('FastAPI backend unreachable; utilizing local ML simulation engine.', err);
       if (onBackendStatusChange) onBackendStatusChange(false);
 
       const localResult = calculateLocalPrediction(submissionData);
@@ -175,7 +172,33 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
       setInfoMessage('FastAPI backend is offline; computed prediction using verified local ML simulation engine.');
     } finally {
       setLoading(false);
+      if (onLoadingChange) onLoadingChange(false);
     }
+  };
+
+  // Synchronized Preset & Reset: restores inputs AND recalculates predictions automatically
+  const applyPreset = async (key) => {
+    const presetData = { ...PRESETS[key].data };
+    setFormData(presetData);
+    setErrors({});
+    setInfoMessage(`Loaded preset: "${PRESETS[key].name}". Recalculating safety prediction...`);
+    await executePrediction(presetData);
+  };
+
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!validate()) return;
+
+    const submissionData = {
+      ...formData,
+      temp: Number(formData.temp),
+      humidity: Number(formData.humidity),
+      wind_speed: Number(formData.wind_speed),
+      rain: Number(formData.rain),
+      pressure: Number(formData.pressure)
+    };
+
+    await executePrediction(submissionData);
   };
 
   return (
@@ -188,7 +211,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: 1.5,
-          p: 1.5,
+          p: { xs: 1.2, sm: 1.5 },
           mb: 3,
           borderRadius: 2,
           backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'),
@@ -218,7 +241,8 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
               color="primary"
               variant="outlined"
               clickable
-              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+              disabled={loading}
+              sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
             />
             <Chip
               size="small"
@@ -227,7 +251,8 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
               onClick={() => applyPreset('rainy')}
               variant="outlined"
               clickable
-              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+              disabled={loading}
+              sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
             />
             <Chip
               size="small"
@@ -236,7 +261,8 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
               onClick={() => applyPreset('windy')}
               variant="outlined"
               clickable
-              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+              disabled={loading}
+              sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
             />
             <Chip
               size="small"
@@ -246,7 +272,8 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
               color="warning"
               variant="outlined"
               clickable
-              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+              disabled={loading}
+              sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
             />
             <Chip
               size="small"
@@ -256,7 +283,8 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
               color="error"
               variant="outlined"
               clickable
-              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+              disabled={loading}
+              sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
             />
           </Box>
         </Box>
@@ -272,7 +300,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
         </Alert>
       )}
 
-      {/* SECTION 1: Core Atmospheric Telemetry (Symmetrical 4-Column Grid) */}
+      {/* SECTION 1: Core Atmospheric Telemetry (Symmetrical 4-Column Grid with Full Accessibility) */}
       <Box sx={{ mb: 2.5 }}>
         <Typography
           variant="caption"
@@ -299,7 +327,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
           <Paper
             variant="outlined"
             sx={{
-              p: 1.75,
+              p: { xs: 1.5, sm: 1.75 },
               borderRadius: 2,
               display: 'flex',
               flexDirection: 'column',
@@ -314,42 +342,56 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+              <Typography
+                component="label"
+                htmlFor="temp-number-input"
+                variant="body2"
+                sx={{ fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+              >
                 Temperature
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TextField
+                  id="temp-number-input"
                   size="small"
                   type="number"
                   name="temp"
                   value={formData.temp}
                   onChange={handleChange}
-                  inputProps={{ min: -10, max: 50, step: 0.5 }}
+                  inputProps={{
+                    id: "temp-number-input",
+                    min: -10,
+                    max: 50,
+                    step: 0.5,
+                    inputMode: 'decimal',
+                    'aria-label': 'Ambient temperature in degrees Celsius (-10 to 50)'
+                  }}
                   sx={{
-                    width: 66,
+                    width: 70,
                     '& .MuiInputBase-input': {
-                      py: 0.25,
+                      py: 0.35,
                       px: 0.8,
                       textAlign: 'right',
                       fontWeight: 800,
-                      fontSize: '0.85rem',
+                      fontSize: '0.88rem',
                       color: 'primary.main'
                     }
                   }}
                 />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+                <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
                   °C
                 </Typography>
               </Box>
             </Box>
 
             <Slider
-              size="small"
+              size="medium"
               value={typeof formData.temp === 'number' ? formData.temp : 20}
               min={-5}
               max={45}
               step={0.5}
               onChange={handleSliderChange('temp')}
+              aria-label="Temperature slider in Celsius"
               sx={{ my: 0.8 }}
             />
 
@@ -375,7 +417,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
           <Paper
             variant="outlined"
             sx={{
-              p: 1.75,
+              p: { xs: 1.5, sm: 1.75 },
               borderRadius: 2,
               display: 'flex',
               flexDirection: 'column',
@@ -390,42 +432,56 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+              <Typography
+                component="label"
+                htmlFor="humidity-number-input"
+                variant="body2"
+                sx={{ fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+              >
                 Relative Humidity
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TextField
+                  id="humidity-number-input"
                   size="small"
                   type="number"
                   name="humidity"
                   value={formData.humidity}
                   onChange={handleChange}
-                  inputProps={{ min: 0, max: 100, step: 1 }}
+                  inputProps={{
+                    id: "humidity-number-input",
+                    min: 0,
+                    max: 100,
+                    step: 1,
+                    inputMode: 'decimal',
+                    'aria-label': 'Relative humidity percentage (0 to 100)'
+                  }}
                   sx={{
-                    width: 66,
+                    width: 70,
                     '& .MuiInputBase-input': {
-                      py: 0.25,
+                      py: 0.35,
                       px: 0.8,
                       textAlign: 'right',
                       fontWeight: 800,
-                      fontSize: '0.85rem',
+                      fontSize: '0.88rem',
                       color: 'primary.main'
                     }
                   }}
                 />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+                <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
                   %
                 </Typography>
               </Box>
             </Box>
 
             <Slider
-              size="small"
+              size="medium"
               value={typeof formData.humidity === 'number' ? formData.humidity : 50}
               min={0}
               max={100}
               step={1}
               onChange={handleSliderChange('humidity')}
+              aria-label="Relative humidity percentage slider"
               sx={{ my: 0.8 }}
             />
 
@@ -451,7 +507,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
           <Paper
             variant="outlined"
             sx={{
-              p: 1.75,
+              p: { xs: 1.5, sm: 1.75 },
               borderRadius: 2,
               display: 'flex',
               flexDirection: 'column',
@@ -466,42 +522,56 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+              <Typography
+                component="label"
+                htmlFor="wind-speed-number-input"
+                variant="body2"
+                sx={{ fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+              >
                 Wind Speed
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TextField
+                  id="wind-speed-number-input"
                   size="small"
                   type="number"
                   name="wind_speed"
                   value={formData.wind_speed}
                   onChange={handleChange}
-                  inputProps={{ min: 0, max: 50, step: 0.5 }}
+                  inputProps={{
+                    id: "wind-speed-number-input",
+                    min: 0,
+                    max: 50,
+                    step: 0.5,
+                    inputMode: 'decimal',
+                    'aria-label': 'Wind speed in meters per second (0 to 50)'
+                  }}
                   sx={{
-                    width: 66,
+                    width: 70,
                     '& .MuiInputBase-input': {
-                      py: 0.25,
+                      py: 0.35,
                       px: 0.8,
                       textAlign: 'right',
                       fontWeight: 800,
-                      fontSize: '0.85rem',
+                      fontSize: '0.88rem',
                       color: 'primary.main'
                     }
                   }}
                 />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+                <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
                   m/s
                 </Typography>
               </Box>
             </Box>
 
             <Slider
-              size="small"
+              size="medium"
               value={typeof formData.wind_speed === 'number' ? formData.wind_speed : 3}
               min={0}
               max={30}
               step={0.5}
               onChange={handleSliderChange('wind_speed')}
+              aria-label="Wind speed in meters per second slider"
               sx={{ my: 0.8 }}
             />
 
@@ -527,7 +597,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
           <Paper
             variant="outlined"
             sx={{
-              p: 1.75,
+              p: { xs: 1.5, sm: 1.75 },
               borderRadius: 2,
               display: 'flex',
               flexDirection: 'column',
@@ -542,42 +612,56 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+              <Typography
+                component="label"
+                htmlFor="rain-number-input"
+                variant="body2"
+                sx={{ fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+              >
                 Precipitation (Rain)
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TextField
+                  id="rain-number-input"
                   size="small"
                   type="number"
                   name="rain"
                   value={formData.rain}
                   onChange={handleChange}
-                  inputProps={{ min: 0, max: 100, step: 0.5 }}
+                  inputProps={{
+                    id: "rain-number-input",
+                    min: 0,
+                    max: 100,
+                    step: 0.5,
+                    inputMode: 'decimal',
+                    'aria-label': 'Precipitation rainfall in millimeters'
+                  }}
                   sx={{
-                    width: 66,
+                    width: 70,
                     '& .MuiInputBase-input': {
-                      py: 0.25,
+                      py: 0.35,
                       px: 0.8,
                       textAlign: 'right',
                       fontWeight: 800,
-                      fontSize: '0.85rem',
+                      fontSize: '0.88rem',
                       color: 'primary.main'
                     }
                   }}
                 />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+                <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
                   mm
                 </Typography>
               </Box>
             </Box>
 
             <Slider
-              size="small"
+              size="medium"
               value={typeof formData.rain === 'number' ? formData.rain : 0}
               min={0}
               max={40}
               step={0.5}
               onChange={handleSliderChange('rain')}
+              aria-label="Precipitation rainfall slider in millimeters"
               sx={{ my: 0.8 }}
             />
 
@@ -601,7 +685,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
         </Box>
       </Box>
 
-      {/* SECTION 2: Wind Direction & Barometric Pressure (Balanced 2-Column Grid) */}
+      {/* SECTION 2: Wind Direction & Barometric Pressure */}
       <Box sx={{ mb: 2.5 }}>
         <Typography
           variant="caption"
@@ -632,7 +716,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
             name="wind_dir"
             value={formData.wind_dir}
             onChange={handleChange}
-            helperText="Prevailing wind bearing (East = oceanic cleansing breeze, West/NW = inland heat & smoke)"
+            helperText="Prevailing bearing (East = oceanic cleansing breeze, West/NW = inland heat & smoke)"
           >
             <MenuItem value={0}>North (0° / 360° - Stable)</MenuItem>
             <MenuItem value={45}>North-East (45° - Coastal)</MenuItem>
@@ -645,6 +729,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
           </TextField>
 
           <TextField
+            id="pressure-number-input"
             size="small"
             fullWidth
             label="Atmospheric Pressure (hPa)"
@@ -652,13 +737,21 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
             type="number"
             value={formData.pressure}
             onChange={handleChange}
+            inputProps={{
+              id: "pressure-number-input",
+              min: 900,
+              max: 1100,
+              step: 0.5,
+              inputMode: 'decimal',
+              'aria-label': 'Barometric atmospheric pressure in hectopascals (900 to 1100)'
+            }}
             error={!!errors.pressure}
             helperText={errors.pressure || 'Standard sea-level: 1013.25 hPa (High >1020 hPa traps particles in stagnation)'}
           />
         </Box>
       </Box>
 
-      {/* SECTION 3: Temporal & School Context (Symmetrical 3-Column Grid) */}
+      {/* SECTION 3: Temporal & School Context */}
       <Box sx={{ mb: 3 }}>
         <Typography
           variant="caption"
@@ -706,7 +799,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
             name="day_of_week"
             value={formData.day_of_week}
             onChange={handleChange}
-            helperText="Accounts for weekday vs weekend vehicle traffic"
+            helperText="Accounts for commuter traffic volume cycle"
           >
             <MenuItem value={0}>Monday (Weekday traffic)</MenuItem>
             <MenuItem value={1}>Tuesday</MenuItem>
@@ -733,32 +826,33 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
         </Box>
       </Box>
 
-      {/* ACTION BUTTONS: Balanced Full-Width Footer Bar */}
+      {/* ACTION BUTTONS: Synchronized Reset & Recalculate Footer Bar */}
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: { xs: 'stretch', sm: 'center' },
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          flexDirection: { xs: 'column-reverse', sm: 'row' },
           gap: 2,
           pt: 2.5,
           borderTop: 1,
           borderColor: 'divider'
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'center', sm: 'flex-start' } }}>
           <Button
             variant="outlined"
             color="inherit"
             size="medium"
             startIcon={<ResetIcon />}
             onClick={() => applyPreset('calm')}
-            sx={{ borderRadius: 2, fontWeight: 600, px: 2.5 }}
+            disabled={loading}
+            sx={{ borderRadius: 2, fontWeight: 600, px: 2.5, width: { xs: '100%', sm: 'auto' }, minHeight: 42 }}
           >
             Reset to Baseline
           </Button>
           <Typography variant="caption" sx={{ color: 'text.secondary', display: { xs: 'none', md: 'inline' }, fontWeight: 500 }}>
-            Default: Calm Sunny Morning · Luddenham Station (Sydney)
+            Default: Calm Sunny Morning · Auto-Recalculating
           </Typography>
         </Box>
 
@@ -767,14 +861,17 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
           variant="contained"
           color="primary"
           size="large"
+          className="primary-action"
           disabled={loading}
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PredictIcon />}
           sx={{
             px: 4,
-            py: 1.2,
+            py: { xs: 1.4, sm: 1.2 },
             fontWeight: 800,
             borderRadius: 2,
-            boxShadow: '0 4px 14px rgba(25, 118, 210, 0.35)'
+            boxShadow: '0 4px 14px rgba(25, 118, 210, 0.35)',
+            width: { xs: '100%', sm: 'auto' },
+            minHeight: 46
           }}
         >
           {loading ? 'Evaluating Atmospheric Telemetry...' : 'Calculate Recess Safety Level'}
