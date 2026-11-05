@@ -2,27 +2,27 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 
 const FEATURE_DESCRIPTIONS = {
-  LUDD_RH: 'Relative Humidity (29.8%): High moisture traps particulate matter in the lower atmosphere.',
-  LUDD_T: 'Temperature (20.5%): Thermal inversions restrict vertical dispersion, causing particulate spikes.',
-  LUDD_p: 'Barometric Pressure (16.2%): High pressure systems create stable air masses where pollutants accumulate.',
-  LUDD_wd: 'Wind Direction (9.2%): Determines transport corridors from industrial or bushfire hazard zones.',
-  Hour: 'Hour of Day (8.6%): Captures diurnal commuter traffic pulses and photochemical reactions.',
-  DayOfWeek: 'Day of Week (8.4%): Differentiates high-traffic school/workdays from weekend patterns.',
-  LUDD_ws: 'Wind Speed (6.8%): High wind speeds disperse pollutants; calm air causes stagnation.',
-  Is_Holiday: 'Public Holiday (0.5%): Accounts for decreased school bus and local traffic emissions.',
-  LUDD_Rain: 'Rainfall (0.1%): Scavenges and cleans particulate matter from ambient air.'
+  LUDD_RH: 'Air Humidity (29.8%): Humid air traps dust and smoke near the ground instead of letting it clear away.',
+  LUDD_T: 'Temperature (20.5%): Hot weather traps smoke and dust close to where students breathe.',
+  LUDD_p: 'Air Pressure (16.2%): High pressure keeps the air calm and still, allowing pollution to build up.',
+  LUDD_wd: 'Wind Direction (9.2%): Ocean winds bring clean fresh air, while inland winds can blow in smoke.',
+  Hour: 'Time of Day (8.6%): Pollution rises during morning school traffic and hot midday hours.',
+  DayOfWeek: 'Day of Week (8.4%): Regular school days have more car and bus traffic than quiet weekends.',
+  LUDD_ws: 'Wind Speed (6.8%): Fresh breezes blow away dust; still, calm air lets smoke and dust linger.',
+  Is_Holiday: 'School Holiday (0.5%): School holidays have much less road traffic and fewer buses.',
+  LUDD_Rain: 'Rainfall (0.1%): Rain washes dust and smoke out of the sky, leaving clean air.'
 };
 
 const FRIENDLY_NAMES = {
-  LUDD_RH: 'Relative Humidity',
+  LUDD_RH: 'Air Humidity',
   LUDD_T: 'Temperature',
-  LUDD_p: 'Barometric Pressure',
+  LUDD_p: 'Air Pressure',
   LUDD_wd: 'Wind Direction',
-  Hour: 'Time of Day (Hour)',
+  Hour: 'Time of Day',
   DayOfWeek: 'Day of Week',
   LUDD_ws: 'Wind Speed',
-  Is_Holiday: 'Public Holiday',
-  LUDD_Rain: 'Precipitation (Rain)'
+  Is_Holiday: 'School Holiday',
+  LUDD_Rain: 'Rainfall'
 };
 
 // Static default fallback data to ensure stable references across re-renders
@@ -66,7 +66,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
   useEffect(() => {
     if (!svgRef.current) return;
 
-    const margin = { top: 15, right: 55, bottom: 35, left: 145 };
+    const margin = { top: 15, right: 55, bottom: 35, left: 130 };
     const width = 560;
     const height = 320;
 
@@ -167,7 +167,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
 
     xAxis.select('.domain').attr('color', darkMode ? '#475569' : '#cbd5e1');
 
-    // Non-shuttering hover handlers
+    // Hover handlers
     const handleSelect = function (_, d) {
       bars.attr('opacity', 0.65).attr('fill', 'url(#barGrad)');
       d3.select(this)
@@ -193,8 +193,8 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
   return (
     <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ fontSize: '12px', color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 500 }}>
-          Gini feature importance (100-tree Random Forest)
+        <div style={{ fontSize: '12px', color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
+          Ranked by Impact on Air Quality
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button
@@ -204,7 +204,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
               fontSize: '11px',
               fontWeight: 600,
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
+              border: `1px solid ${sortBy === 'importance' ? '#2563eb' : darkMode ? '#334155' : '#cbd5e1'}`,
               backgroundColor: sortBy === 'importance' ? '#2563eb' : 'transparent',
               color: sortBy === 'importance' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
               cursor: 'pointer',
@@ -220,14 +220,14 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
               fontSize: '11px',
               fontWeight: 600,
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
+              border: `1px solid ${sortBy === 'name' ? '#2563eb' : darkMode ? '#334155' : '#cbd5e1'}`,
               backgroundColor: sortBy === 'name' ? '#2563eb' : 'transparent',
               color: sortBy === 'name' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
               cursor: 'pointer',
               minHeight: '30px'
             }}
           >
-            Alphabetical
+            A–Z
           </button>
         </div>
       </div>
@@ -236,7 +236,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
         <svg ref={svgRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
       </div>
 
-      {/* Stable minHeight container to completely prevent vertical displacement when displaying details */}
+      {/* Explanatory details in plain English */}
       <div style={{ minHeight: '52px', marginTop: '8px' }}>
         {hoveredFeature ? (
           <div
@@ -253,7 +253,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
           </div>
         ) : (
           <div style={{ fontSize: '11px', color: darkMode ? '#64748b' : '#94a3b8', fontStyle: 'italic', paddingTop: '6px' }}>
-            Tip: Tap or hover over any bar to view its atmospheric rationale.
+            Tip: Tap or hover over any bar to learn how that weather factor affects air quality.
           </div>
         )}
       </div>

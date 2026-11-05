@@ -31,20 +31,20 @@ const PRESETS = {
     data: { temp: 22.0, humidity: 62.0, wind_speed: 3.5, wind_dir: 45, rain: 0.0, pressure: 1016.0, hour: 10, day_of_week: 1, is_holiday: 0 }
   },
   rainy: {
-    name: 'Humid & Rainy (Cleansing)',
+    name: 'Humid & Rainy (Cleans the Air)',
     data: { temp: 17.5, humidity: 92.0, wind_speed: 6.0, wind_dir: 180, rain: 8.5, pressure: 1010.0, hour: 11, day_of_week: 2, is_holiday: 0 }
   },
   windy: {
-    name: 'High Wind Dispersal',
+    name: 'High Wind (Clears Smoke & Dust)',
     data: { temp: 19.0, humidity: 45.0, wind_speed: 16.5, wind_dir: 270, rain: 0.0, pressure: 1013.0, hour: 12, day_of_week: 3, is_holiday: 0 }
   },
   heat: {
-    name: 'Summer Heatwave (Inversion)',
-    data: { temp: 37.0, humidity: 82.0, wind_speed: 0.8, wind_dir: 315, rain: 0.0, pressure: 1008.0, hour: 13, day_of_week: 4, is_holiday: 0 }
+    name: 'Summer Heatwave (Hot & Humid Alert)',
+    data: { temp: 33.0, humidity: 72.0, wind_speed: 1.8, wind_dir: 315, rain: 0.0, pressure: 1012.0, hour: 13, day_of_week: 4, is_holiday: 0 }
   },
   haze: {
-    name: 'Bushfire Smoke / High Haze',
-    data: { temp: 34.0, humidity: 28.0, wind_speed: 2.1, wind_dir: 290, rain: 0.0, pressure: 1021.0, hour: 12, day_of_week: 5, is_holiday: 0 }
+    name: 'Bushfire Haze (Smoke Danger)',
+    data: { temp: 36.0, humidity: 20.0, wind_speed: 1.2, wind_dir: 290, rain: 0.0, pressure: 1022.0, hour: 12, day_of_week: 5, is_holiday: 0 }
   }
 };
 
@@ -257,7 +257,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             <Chip
               size="small"
               icon={<WindIcon fontSize="small" />}
-              label="High Wind Dispersal"
+              label="High Wind (Clears Air)"
               onClick={() => applyPreset('windy')}
               variant="outlined"
               clickable
@@ -290,7 +290,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
         </Box>
 
         <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: { xs: 'none', lg: 'block' } }}>
-          Calibrated to Sydney SWAQ Luddenham Station Telemetry
+          Live readings from Luddenham Weather Station (Western Sydney)
         </Typography>
       </Box>
 
@@ -300,7 +300,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
         </Alert>
       )}
 
-      {/* SECTION 1: Core Atmospheric Telemetry (Symmetrical 4-Column Grid with Full Accessibility) */}
+      {/* SECTION 1: Core Weather Sensors */}
       <Box sx={{ mb: 2.5 }}>
         <Typography
           variant="caption"
@@ -313,7 +313,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             mb: 1.2
           }}
         >
-          1. Continuous Meteorological Telemetry Sensors
+          1. Live Weather & Continuous Meteorological Telemetry Sensors
         </Typography>
 
         <Box
@@ -698,7 +698,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             mb: 1.2
           }}
         >
-          2. Wind Vector & Barometric Pressure
+          2. Wind Direction & Air Pressure
         </Typography>
 
         <Box
@@ -716,16 +716,16 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             name="wind_dir"
             value={formData.wind_dir}
             onChange={handleChange}
-            helperText="Prevailing bearing (East = oceanic cleansing breeze, West/NW = inland heat & smoke)"
+            helperText="Wind direction: East = clean ocean breeze, West/NW = inland warm air & smoke"
           >
-            <MenuItem value={0}>North (0° / 360° - Stable)</MenuItem>
-            <MenuItem value={45}>North-East (45° - Coastal)</MenuItem>
-            <MenuItem value={90}>East (90° - Maritime sea breeze / Cleansing)</MenuItem>
-            <MenuItem value={135}>South-East (135° - Moderate)</MenuItem>
-            <MenuItem value={180}>South (180° - Southerly buster / Cool)</MenuItem>
-            <MenuItem value={225}>South-West (225° - Continental)</MenuItem>
-            <MenuItem value={270}>West (270° - Continental warm)</MenuItem>
-            <MenuItem value={315}>North-West (315° - Hot inland / Stagnant)</MenuItem>
+            <MenuItem value={0}>North (0° - Calm air)</MenuItem>
+            <MenuItem value={45}>North-East (45° - Coastal breeze)</MenuItem>
+            <MenuItem value={90}>East (90° - Clean ocean breeze)</MenuItem>
+            <MenuItem value={135}>South-East (135° - Gentle breeze)</MenuItem>
+            <MenuItem value={180}>South (180° - Cool southerly change)</MenuItem>
+            <MenuItem value={225}>South-West (225° - Inland breeze)</MenuItem>
+            <MenuItem value={270}>West (270° - Warm inland breeze)</MenuItem>
+            <MenuItem value={315}>North-West (315° - Hot inland air / trapped smoke)</MenuItem>
           </TextField>
 
           <TextField
@@ -746,12 +746,12 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
               'aria-label': 'Barometric atmospheric pressure in hectopascals (900 to 1100)'
             }}
             error={!!errors.pressure}
-            helperText={errors.pressure || 'Standard sea-level: 1013.25 hPa (High >1020 hPa traps particles in stagnation)'}
+            helperText={errors.pressure || 'Normal air pressure: 1013 hPa (High pressure traps dust and smoke near the ground)'}
           />
         </Box>
       </Box>
 
-      {/* SECTION 3: Temporal & School Context */}
+      {/* SECTION 3: Time of Day & School Schedule */}
       <Box sx={{ mb: 3 }}>
         <Typography
           variant="caption"
@@ -764,7 +764,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             mb: 1.2
           }}
         >
-          3. Temporal & School Operations Schedule
+          3. Time of Day & School Schedule
         </Typography>
 
         <Box

@@ -171,3 +171,53 @@ body {
     color: #000 !important;
   }
 }
+
+/* ==========================================================================
+   Recess Summary Ribbon Alignment
+   ========================================================================== */
+
+.recess-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+  .recess-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .recess-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.recess-summary-col {
+  display: flex;
+  flex-direction: column;
+  justifyContent: flex-start;
+}
+
+.recess-summary-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-height: 28px;
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.35;
+}
+
+.recess-summary-value {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}

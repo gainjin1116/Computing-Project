@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 
-export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
+export default function D3DiurnalTrend({ activeParams, predictionResult, darkMode = false }) {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const [filterMode, setFilterMode] = useState('full'); // 'full' (24h) or 'school' (8:00 - 16:00)
   const [hoveredData, setHoveredData] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState(null);
 
   // Normalize parameters supporting both full and abbreviated keys
   const params = useMemo(() => {
@@ -27,7 +28,7 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
     activeParams?.is_holiday
   ]);
 
-  // Generate 24h diurnal data points based on atmospheric physics formula
+  // Generate 24h diurnal data points based on atmospheric physics formula (Strictly preserved)
   const rawData = useMemo(() => {
     const data = [];
     for (let k = 0; k < 24; k++) {
@@ -41,7 +42,22 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       const rush = Math.exp(-Math.pow((h - 8) / 2.2, 2)) + 0.65 * Math.exp(-Math.pow((h - 18) / 2.5, 2));
       // Photochemical + dispersion factor
       const v = 12 + 1.5 * Math.max(0, temp - 20) - 0.22 * (rh - 50) - 0.3 * params.ws + 0.5 * (params.p - 1013) - 5 * params.rain + 5.5 * rush - (params.hol ? 2.5 : 0);
-      const pm25 = Math.max(2, Math.min(130, Math.round(v * 10) / 10));
+      let pm25 = Math.max(2, Math.min(130, Math.round(v * 10) / 10));
+
+      let status = pm25 <= 25 ? 'Safe' : pm25 <= 50 ? 'Caution' : 'Unsafe';
+
+      // Synchronize with active model prediction safety overrides during recess hours
+      if (h >= 10 && h <= 13 && predictionResult?.override_applied) {
+        if (predictionResult.prediction === 2) {
+          status = 'Unsafe';
+          pm25 = Math.max(52.5, pm25);
+        } else if (predictionResult.prediction === 1 && status === 'Safe') {
+          status = 'Caution';
+          pm25 = Math.max(26.0, pm25);
+        }
+      }
+
+      const statusColor = pm25 <= 25 ? '#16a34a' : pm25 <= 50 ? '#f59e0b' : '#dc2626';
 
       data.push({
         hour: h,
@@ -50,11 +66,43 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
         temp,
         rh,
         isRecess: h >= 10 && h <= 13,
-        status: pm25 <= 25 ? 'Safe' : pm25 <= 50 ? 'Caution' : 'Unsafe'
+        status,
+        statusColor
       });
     }
     return data;
-  }, [params]);
+  }, [params, predictionResult]);
+
+  // Dynamic calculation for Recess & Lunch summary (10:30–13:30)
+  const recessSummary = useMemo(() => {
+    const points = rawData.filter(d => d.hour >= 11 && d.hour <= 13);
+    if (!points.length) return null;
+    const values = points.map(d => d.pm25);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const avg = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+    const status = max > 50 ? 'Unsafe' : (avg > 25 || max > 25) ? 'Caution' : 'Safe';
+    const statusColor = status === 'Safe' ? '#16a34a' : status === 'Caution' ? '#f59e0b' : '#dc2626';
+    const statusBg = status === 'Safe'
+      ? (darkMode ? 'rgba(22, 163, 74, 0.16)' : '#f0fdf4')
+      : status === 'Caution'
+      ? (darkMode ? 'rgba(245, 158, 11, 0.16)' : '#fffbeb')
+      : (darkMode ? 'rgba(220, 38, 38, 0.16)' : '#fef2f2');
+    const statusIcon = status === 'Safe' ? '🟢' : status === 'Caution' ? '⚠' : '⛔';
+    const recommendation = status === 'Safe'
+      ? 'Normal outdoor recess & sports permitted'
+      : status === 'Caution'
+      ? 'Limit aerobic activity · Check asthmatic pupils'
+      : 'Hazardous air · Suspend outdoor recess immediately';
+
+    return { min, max, avg, status, statusColor, statusBg, statusIcon, recommendation };
+  }, [rawData, darkMode]);
+
+  // Dynamic calculation for Daily Peak PM2.5
+  const dailyPeak = useMemo(() => {
+    if (!rawData.length) return null;
+    return rawData.reduce((prev, curr) => curr.pm25 > prev.pm25 ? curr : prev, rawData[0]);
+  }, [rawData]);
 
   const dataset = useMemo(() => {
     return filterMode === 'school' ? rawData.filter(d => d.hour >= 8 && d.hour <= 16) : rawData;
@@ -63,9 +111,9 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
   useEffect(() => {
     if (!svgRef.current) return;
 
-    const margin = { top: 30, right: 25, bottom: 45, left: 45 };
-    const width = 640;
-    const height = 280;
+    const margin = { top: 40, right: 35, bottom: 45, left: 45 };
+    const width = 720;
+    const height = 320;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -79,43 +127,188 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
+    const xMin = d3.min(dataset, d => d.hour);
+    const xMax = d3.max(dataset, d => d.hour);
+
     // Scales
     const xScale = d3.scaleLinear()
-      .domain([d3.min(dataset, d => d.hour), d3.max(dataset, d => d.hour)])
+      .domain([xMin, xMax])
       .range([0, innerWidth]);
 
-    const yMax = Math.max(65, Math.ceil((d3.max(dataset, d => d.pm25) + 10) / 10) * 10);
+    const yMax = Math.max(65, Math.ceil((d3.max(dataset, d => d.pm25) + 12) / 10) * 10);
     const yScale = d3.scaleLinear()
       .domain([0, yMax])
       .range([innerHeight, 0]);
 
-    // Recess & Lunch band shading (10:30 to 13:30)
-    const recessStart = Math.max(10.5, d3.min(dataset, d => d.hour));
-    const recessEnd = Math.min(13.5, d3.max(dataset, d => d.hour));
-    if (recessStart < recessEnd) {
+    // -------------------------------------------------------------
+    // 1. CLEAN MODERN BACKGROUND & SUBTLE RISK ZONES
+    // -------------------------------------------------------------
+    const y25 = yScale(25);
+    const y50 = yScale(50);
+
+    // Very subtle zone tints to maintain a light, clean dashboard feel
+    g.append('rect')
+      .attr('x', 0)
+      .attr('y', y25)
+      .attr('width', innerWidth)
+      .attr('height', innerHeight - y25)
+      .attr('fill', darkMode ? 'rgba(34, 197, 94, 0.025)' : 'rgba(34, 197, 94, 0.03)')
+      .attr('pointer-events', 'none');
+
+    g.append('rect')
+      .attr('x', 0)
+      .attr('y', y50)
+      .attr('width', innerWidth)
+      .attr('height', y25 - y50)
+      .attr('fill', darkMode ? 'rgba(245, 158, 11, 0.025)' : 'rgba(245, 158, 11, 0.03)')
+      .attr('pointer-events', 'none');
+
+    g.append('rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', innerWidth)
+      .attr('height', y50)
+      .attr('fill', darkMode ? 'rgba(239, 68, 68, 0.025)' : 'rgba(239, 68, 68, 0.03)')
+      .attr('pointer-events', 'none');
+
+    // Subtle horizontal gridlines
+    const yTicks = [10, 20, 30, 40, 50, 60].filter(v => v <= yMax);
+    g.selectAll('.grid-line')
+      .data(yTicks)
+      .enter()
+      .append('line')
+      .attr('class', 'grid-line')
+      .attr('x1', 0)
+      .attr('x2', innerWidth)
+      .attr('y1', d => yScale(d))
+      .attr('y2', d => yScale(d))
+      .attr('stroke', darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)')
+      .attr('stroke-width', 1)
+      .attr('pointer-events', 'none');
+
+    // -------------------------------------------------------------
+    // 2. RECESS & LUNCH HIGHLIGHT (10:30–13:30)
+    // -------------------------------------------------------------
+    const rStart = Math.max(10.5, xMin);
+    const rEnd = Math.min(13.5, xMax);
+    if (rStart < rEnd) {
+      const rx1 = xScale(rStart);
+      const rx2 = xScale(rEnd);
+      const rWidth = rx2 - rx1;
+
+      // Elegant translucent blue highlight band
       g.append('rect')
-        .attr('x', xScale(recessStart))
-        .attr('width', xScale(recessEnd) - xScale(recessStart))
+        .attr('x', rx1)
+        .attr('width', rWidth)
         .attr('y', 0)
         .attr('height', innerHeight)
-        .attr('fill', darkMode ? '#3b82f6' : '#60a5fa')
-        .attr('opacity', darkMode ? 0.15 : 0.18)
-        .attr('rx', 4);
+        .attr('fill', darkMode ? 'rgba(59, 130, 246, 0.09)' : 'rgba(59, 130, 246, 0.08)')
+        .attr('rx', 6)
+        .attr('pointer-events', 'none');
+
+      // Left boundary line (10:30)
+      g.append('line')
+        .attr('x1', rx1)
+        .attr('x2', rx1)
+        .attr('y1', 0)
+        .attr('y2', innerHeight)
+        .attr('stroke', '#3b82f6')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3 3')
+        .attr('opacity', 0.4)
+        .attr('pointer-events', 'none');
+
+      // Right boundary line (13:30)
+      g.append('line')
+        .attr('x1', rx2)
+        .attr('x2', rx2)
+        .attr('y1', 0)
+        .attr('y2', innerHeight)
+        .attr('stroke', '#3b82f6')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3 3')
+        .attr('opacity', 0.4)
+        .attr('pointer-events', 'none');
+
+      // Centered Recess Pill Badge at top
+      const rCenterX = (rx1 + rx2) / 2;
+      const pillW = 190;
+      const pillH = 22;
+
+      g.append('rect')
+        .attr('x', rCenterX - pillW / 2)
+        .attr('y', 6)
+        .attr('width', pillW)
+        .attr('height', pillH)
+        .attr('rx', 11)
+        .attr('fill', darkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.92)')
+        .attr('stroke', '#3b82f6')
+        .attr('stroke-width', 1)
+        .attr('stroke-opacity', 0.5)
+        .attr('pointer-events', 'none');
 
       g.append('text')
-        .attr('x', (xScale(recessStart) + xScale(recessEnd)) / 2)
-        .attr('y', 14)
+        .attr('x', rCenterX)
+        .attr('y', 21)
         .attr('text-anchor', 'middle')
         .attr('fill', darkMode ? '#93c5fd' : '#1d4ed8')
-        .attr('font-size', '11px')
+        .attr('font-size', '10px')
         .attr('font-weight', '700')
-        .text('School Recess & Lunch (10:30 - 13:30)');
+        .attr('pointer-events', 'none')
+        .text('School Recess & Lunch · 10:30–13:30');
     }
 
-    // Threshold lines
+    // -------------------------------------------------------------
+    // 3. SCHOOL HOURS CONTEXT MARKERS (8:00 & 16:00)
+    // -------------------------------------------------------------
+    if (xMin <= 8 && 8 <= xMax) {
+      g.append('line')
+        .attr('x1', xScale(8))
+        .attr('x2', xScale(8))
+        .attr('y1', 28)
+        .attr('y2', innerHeight)
+        .attr('stroke', darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(100, 116, 139, 0.3)')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3 3')
+        .attr('pointer-events', 'none');
+
+      g.append('text')
+        .attr('x', xScale(8))
+        .attr('y', innerHeight + 35)
+        .attr('text-anchor', 'middle')
+        .attr('fill', darkMode ? '#94a3b8' : '#64748b')
+        .attr('font-size', '9.5px')
+        .attr('font-weight', '600')
+        .text('08:00 School starts');
+    }
+
+    if (xMin <= 16 && 16 <= xMax) {
+      g.append('line')
+        .attr('x1', xScale(16))
+        .attr('x2', xScale(16))
+        .attr('y1', 28)
+        .attr('y2', innerHeight)
+        .attr('stroke', darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(100, 116, 139, 0.3)')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3 3')
+        .attr('pointer-events', 'none');
+
+      g.append('text')
+        .attr('x', xScale(16))
+        .attr('y', innerHeight + 35)
+        .attr('text-anchor', 'middle')
+        .attr('fill', darkMode ? '#94a3b8' : '#64748b')
+        .attr('font-size', '9.5px')
+        .attr('font-weight', '600')
+        .text('16:00 School ends');
+    }
+
+    // -------------------------------------------------------------
+    // 4. SUBTLE THRESHOLD DASHED LINES & NEAT RIGHT-ALIGNED LABELS
+    // -------------------------------------------------------------
     const thresholds = [
-      { val: 25, label: 'Caution (25 µg/m³)', color: '#ed6c02' },
-      { val: 50, label: 'Unsafe (50 µg/m³)', color: '#d32f2f' }
+      { val: 25, label: 'Caution (25 µg/m³)', color: '#f59e0b' },
+      { val: 50, label: 'Unsafe (50 µg/m³)', color: '#ef4444' }
     ];
 
     thresholds.forEach(t => {
@@ -126,29 +319,34 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
           .attr('y1', yScale(t.val))
           .attr('y2', yScale(t.val))
           .attr('stroke', t.color)
-          .attr('stroke-width', 1.5)
-          .attr('stroke-dasharray', '5 4');
+          .attr('stroke-width', 1.2)
+          .attr('stroke-dasharray', '4 4')
+          .attr('opacity', 0.8)
+          .attr('pointer-events', 'none');
 
         g.append('text')
           .attr('x', innerWidth - 6)
           .attr('y', yScale(t.val) - 5)
           .attr('text-anchor', 'end')
           .attr('fill', t.color)
-          .attr('font-size', '10px')
-          .attr('font-weight', '600')
+          .attr('font-size', '9.5px')
+          .attr('font-weight', '700')
+          .attr('pointer-events', 'none')
           .text(t.label);
       }
     });
 
-    // Area generator with gradient
+    // -------------------------------------------------------------
+    // 5. SMOOTH BLUE CURVE & REFINED UNDER-CURVE GRADIENT
+    // -------------------------------------------------------------
     const defs = svg.append('defs');
     const areaGrad = defs.append('linearGradient')
-      .attr('id', 'areaGrad')
+      .attr('id', 'diurnalModernGrad')
       .attr('x1', '0%').attr('y1', '0%')
       .attr('x2', '0%').attr('y2', '100%');
 
-    areaGrad.append('stop').attr('offset', '0%').attr('stop-color', '#2563eb').attr('stop-opacity', 0.4);
-    areaGrad.append('stop').attr('offset', '100%').attr('stop-color', '#2563eb').attr('stop-opacity', 0.02);
+    areaGrad.append('stop').attr('offset', '0%').attr('stop-color', '#2563eb').attr('stop-opacity', 0.22);
+    areaGrad.append('stop').attr('offset', '100%').attr('stop-color', '#2563eb').attr('stop-opacity', 0.01);
 
     const area = d3.area()
       .x(d => xScale(d.hour))
@@ -158,10 +356,10 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
 
     g.append('path')
       .datum(dataset)
-      .attr('fill', 'url(#areaGrad)')
-      .attr('d', area);
+      .attr('fill', 'url(#diurnalModernGrad)')
+      .attr('d', area)
+      .attr('pointer-events', 'none');
 
-    // Line generator
     const line = d3.line()
       .x(d => xScale(d.hour))
       .y(d => yScale(d.pm25))
@@ -172,21 +370,88 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       .attr('fill', 'none')
       .attr('stroke', '#2563eb')
       .attr('stroke-width', 2.8)
-      .attr('d', line);
+      .attr('d', line)
+      .attr('pointer-events', 'none');
 
-    // Data points
-    g.selectAll('.dot')
+    // -------------------------------------------------------------
+    // 6. DAILY PEAK INDICATOR
+    // -------------------------------------------------------------
+    if (dailyPeak && dailyPeak.hour >= xMin && dailyPeak.hour <= xMax) {
+      const peakX = xScale(dailyPeak.hour);
+      const peakY = yScale(dailyPeak.pm25);
+
+      // Subtle pulse halo around peak point
+      g.append('circle')
+        .attr('cx', peakX)
+        .attr('cy', peakY)
+        .attr('r', 8)
+        .attr('fill', 'none')
+        .attr('stroke', dailyPeak.pm25 > 50 ? '#ef4444' : dailyPeak.pm25 > 25 ? '#f59e0b' : '#16a34a')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '2 2')
+        .attr('opacity', 0.8)
+        .attr('pointer-events', 'none');
+
+      // Callout box above peak
+      const calloutText = `Daily peak · ${dailyPeak.pm25.toFixed(1)} µg/m³ · ${dailyPeak.hour}:00`;
+      const calloutW = 152;
+      const calloutH = 20;
+      const calloutY = Math.max(12, peakY - 26);
+      const calloutX = Math.max(calloutW / 2 + 5, Math.min(innerWidth - calloutW / 2 - 5, peakX));
+
+      // Pointer stem line
+      g.append('line')
+        .attr('x1', peakX)
+        .attr('x2', calloutX)
+        .attr('y1', peakY - 8)
+        .attr('y2', calloutY + calloutH)
+        .attr('stroke', darkMode ? '#cbd5e1' : '#475569')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '2 2')
+        .attr('pointer-events', 'none');
+
+      g.append('rect')
+        .attr('x', calloutX - calloutW / 2)
+        .attr('y', calloutY)
+        .attr('width', calloutW)
+        .attr('height', calloutH)
+        .attr('rx', 6)
+        .attr('fill', darkMode ? 'rgba(30, 41, 59, 0.92)' : 'rgba(255, 255, 255, 0.96)')
+        .attr('stroke', dailyPeak.pm25 > 50 ? '#ef4444' : dailyPeak.pm25 > 25 ? '#f59e0b' : '#16a34a')
+        .attr('stroke-width', 1.2)
+        .attr('pointer-events', 'none');
+
+      g.append('text')
+        .attr('x', calloutX)
+        .attr('y', calloutY + 14)
+        .attr('text-anchor', 'middle')
+        .attr('fill', darkMode ? '#f8fafc' : '#0f172a')
+        .attr('font-size', '9.5px')
+        .attr('font-weight', '700')
+        .attr('pointer-events', 'none')
+        .text(calloutText);
+    }
+
+    // -------------------------------------------------------------
+    // 7. CLEAN CIRCULAR DATA MARKERS WITH HOVER ANIMATION (Req 4)
+    // -------------------------------------------------------------
+    g.selectAll('.data-circle')
       .data(dataset)
       .enter()
       .append('circle')
-      .attr('class', 'dot')
+      .attr('class', 'data-circle')
       .attr('cx', d => xScale(d.hour))
       .attr('cy', d => yScale(d.pm25))
       .attr('r', 4.5)
-      .attr('fill', d => d.pm25 <= 25 ? '#2e7d32' : d.pm25 <= 50 ? '#ed6c02' : '#d32f2f')
-      .attr('stroke', darkMode ? '#1e293b' : '#ffffff')
-      .attr('stroke-width', 1.8);
+      .attr('fill', d => d.statusColor)
+      .attr('stroke', darkMode ? '#0f172a' : '#ffffff')
+      .attr('stroke-width', 2)
+      .attr('pointer-events', 'none')
+      .style('transition', 'r 0.15s ease, stroke-width 0.15s ease');
 
+    // -------------------------------------------------------------
+    // 8. CLEAN X & Y AXES
+    // -------------------------------------------------------------
     // X Axis
     const xAxis = d3.axisBottom(xScale)
       .ticks(filterMode === 'school' ? 8 : 12)
@@ -197,7 +462,8 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       .call(xAxis)
       .attr('color', darkMode ? '#94a3b8' : '#64748b')
       .selectAll('text')
-      .attr('font-size', '11px');
+      .attr('font-size', '11px')
+      .attr('font-weight', '500');
 
     // Y Axis
     const yAxis = d3.axisLeft(yScale).ticks(5);
@@ -205,7 +471,8 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       .call(yAxis)
       .attr('color', darkMode ? '#94a3b8' : '#64748b')
       .selectAll('text')
-      .attr('font-size', '11px');
+      .attr('font-size', '11px')
+      .attr('font-weight', '500');
 
     // Y Axis Label
     g.append('text')
@@ -215,10 +482,12 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       .attr('text-anchor', 'middle')
       .attr('fill', darkMode ? '#94a3b8' : '#64748b')
       .attr('font-size', '11px')
-      .attr('font-weight', '600')
+      .attr('font-weight', '700')
       .text('PM2.5 (µg/m³)');
 
-    // Crosshair line
+    // -------------------------------------------------------------
+    // 9. CROSSHAIR & HOVER TRACKING
+    // -------------------------------------------------------------
     const crosshair = g.append('line')
       .attr('y1', 0)
       .attr('y2', innerHeight)
@@ -228,16 +497,15 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       .style('opacity', 0)
       .style('pointer-events', 'none');
 
-    // Crosshair highlight circle
     const highlightCircle = g.append('circle')
-      .attr('r', 6)
+      .attr('r', 7.5)
       .attr('fill', '#2563eb')
       .attr('stroke', '#ffffff')
-      .attr('stroke-width', 2)
+      .attr('stroke-width', 2.5)
       .style('opacity', 0)
       .style('pointer-events', 'none');
 
-    // Interactive Hover & Touch Overlay with non-displacing pointer tracking
+    // Interactive pointer overlay
     const overlay = g.append('rect')
       .attr('width', innerWidth)
       .attr('height', innerHeight)
@@ -258,7 +526,7 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       const index = bisect(dataset, xHour);
       const selected = dataset[index];
 
-      if (selected) {
+      if (selected && containerRef.current) {
         const cx = xScale(selected.hour);
         const cy = yScale(selected.pm25);
 
@@ -270,7 +538,21 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
         highlightCircle
           .attr('cx', cx)
           .attr('cy', cy)
+          .attr('fill', selected.statusColor)
           .style('opacity', 1);
+
+        // Calculate container-relative coordinates for the floating tooltip
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const svgRect = svgRef.current.getBoundingClientRect();
+        const scaleX = svgRect.width / width;
+        const scaleY = svgRect.height / height;
+        const screenX = (margin.left + cx) * scaleX;
+        const screenY = (margin.top + cy) * scaleY + (svgRef.current.offsetTop || 0);
+
+        setTooltipPos({
+          x: Math.max(80, Math.min(containerRect.width - 80, screenX)),
+          y: screenY
+        });
 
         setHoveredData(selected);
       }
@@ -280,6 +562,7 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       crosshair.style('opacity', 0);
       highlightCircle.style('opacity', 0);
       setHoveredData(null);
+      setTooltipPos(null);
     };
 
     overlay
@@ -289,38 +572,129 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
       .on('mouseleave', clearPointer)
       .on('touchend', clearPointer);
 
-  }, [dataset, filterMode, darkMode]);
+  }, [dataset, filterMode, darkMode, recessSummary, dailyPeak]);
 
   return (
-    <div ref={containerRef} style={{ width: '100%' }}>
-      {/* Stable Header Row with Fixed minHeight to completely prevent vertical layout displacement */}
+    <div ref={containerRef} style={{ width: '100%', position: 'relative' }}>
+      {/* ------------------------------------------------------------- */}
+      {/* RECESS-PERIOD SUMMARY RIBBON (Requirement 1 & 6)              */}
+      {/* ------------------------------------------------------------- */}
+      {recessSummary && (
+        <div
+          className="recess-summary-grid"
+          style={{
+            backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.45)' : '#f8fafc',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'}`
+          }}
+        >
+          <div className="recess-summary-col">
+            <span
+              className="recess-summary-label"
+              style={{ color: darkMode ? '#94a3b8' : '#64748b' }}
+            >
+              Recess Window
+            </span>
+            <div className="recess-summary-value">
+              <strong style={{ fontSize: '15px', color: darkMode ? '#f8fafc' : '#0f172a' }}>
+                10:30 – 13:30
+              </strong>
+            </div>
+          </div>
+
+          <div className="recess-summary-col">
+            <span
+              className="recess-summary-label"
+              style={{ color: darkMode ? '#94a3b8' : '#64748b' }}
+            >
+              Average PM2.5
+            </span>
+            <div className="recess-summary-value">
+              <strong style={{ fontSize: '15px', color: recessSummary.statusColor }}>
+                {recessSummary.avg.toFixed(1)} µg/m³
+              </strong>
+            </div>
+          </div>
+
+          <div className="recess-summary-col">
+            <span
+              className="recess-summary-label"
+              style={{ color: darkMode ? '#94a3b8' : '#64748b' }}
+            >
+              Recess Range
+            </span>
+            <div className="recess-summary-value">
+              <strong style={{ fontSize: '15px', color: darkMode ? '#f8fafc' : '#0f172a' }}>
+                {recessSummary.min.toFixed(1)} – {recessSummary.max.toFixed(1)} µg/m³
+              </strong>
+            </div>
+          </div>
+
+          <div className="recess-summary-col">
+            <span
+              className="recess-summary-label"
+              style={{ color: darkMode ? '#94a3b8' : '#64748b' }}
+            >
+              Recess Risk Status
+            </span>
+            <div className="recess-summary-value">
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 10px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: recessSummary.statusColor,
+                  backgroundColor: recessSummary.statusBg
+                }}
+              >
+                {recessSummary.statusIcon} {recessSummary.status}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ gridColumn: '1 / -1', borderTop: `1px dashed ${darkMode ? '#334155' : '#e2e8f0'}`, paddingTop: '10px', marginTop: '2px' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: 600, color: darkMode ? '#cbd5e1' : '#334155' }}>
+              <strong>School Recommendation:</strong> {recessSummary.recommendation}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* FILTER BUTTONS & TOOLBAR (Requirement 3)                      */}
+      {/* ------------------------------------------------------------- */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          minHeight: '40px',
-          marginBottom: '10px',
+          minHeight: '44px',
+          marginBottom: '12px',
           flexWrap: 'wrap',
           gap: '8px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <span style={{ fontSize: '13px', fontWeight: 700, color: darkMode ? '#cbd5e1' : '#334155' }}>
             Filter:
           </span>
           <button
             onClick={() => setFilterMode('full')}
             style={{
-              padding: '6px 12px',
+              padding: '6px 14px',
               fontSize: '12px',
-              fontWeight: 600,
+              fontWeight: 700,
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: filterMode === 'full' ? '#2563eb' : 'transparent',
-              color: filterMode === 'full' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
+              border: `1px solid ${filterMode === 'full' ? '#2563eb' : darkMode ? '#334155' : '#e2e8f0'}`,
+              backgroundColor: filterMode === 'full' ? '#2563eb' : darkMode ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+              color: filterMode === 'full' ? '#ffffff' : darkMode ? '#cbd5e1' : '#475569',
+              boxShadow: filterMode === 'full' ? '0 2px 8px rgba(37, 99, 235, 0.28)' : 'none',
               cursor: 'pointer',
-              minHeight: '32px'
+              minHeight: '32px',
+              transition: 'all 0.15s ease'
             }}
           >
             24-Hour Cycle
@@ -328,52 +702,129 @@ export default function D3DiurnalTrend({ activeParams, darkMode = false }) {
           <button
             onClick={() => setFilterMode('school')}
             style={{
-              padding: '6px 12px',
+              padding: '6px 14px',
               fontSize: '12px',
-              fontWeight: 600,
+              fontWeight: 700,
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: filterMode === 'school' ? '#2563eb' : 'transparent',
-              color: filterMode === 'school' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
+              border: `1px solid ${filterMode === 'school' ? '#2563eb' : darkMode ? '#334155' : '#e2e8f0'}`,
+              backgroundColor: filterMode === 'school' ? '#2563eb' : darkMode ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+              color: filterMode === 'school' ? '#ffffff' : darkMode ? '#cbd5e1' : '#475569',
+              boxShadow: filterMode === 'school' ? '0 2px 8px rgba(37, 99, 235, 0.28)' : 'none',
               cursor: 'pointer',
-              minHeight: '32px'
+              minHeight: '32px',
+              transition: 'all 0.15s ease'
             }}
           >
             School Hours (8:00 - 16:00)
           </button>
         </div>
 
-        {/* Dedicated Fixed Height Info Badge Container */}
-        <div style={{ minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
-          {hoveredData ? (
-            <div
-              style={{
-                fontSize: '12px',
-                fontWeight: 600,
-                padding: '4px 10px',
-                borderRadius: '8px',
-                backgroundColor: darkMode ? '#1e293b' : '#f1f5f9',
-                border: '1px solid #cbd5e1',
-                display: 'flex',
-                gap: '10px',
-                flexWrap: 'wrap',
-                alignItems: 'center'
-              }}
-            >
-              <span>Time: <strong>{hoveredData.timeLabel}</strong></span>
-              <span>PM2.5: <strong style={{ color: hoveredData.pm25 <= 25 ? '#2e7d32' : hoveredData.pm25 <= 50 ? '#ed6c02' : '#d32f2f' }}>{hoveredData.pm25} µg/m³ ({hoveredData.status})</strong></span>
-              <span>Temp: <strong>{hoveredData.temp}°C</strong></span>
-            </div>
-          ) : (
-            <div style={{ fontSize: '11px', color: darkMode ? '#64748b' : '#94a3b8', fontStyle: 'italic' }}>
-              Hover along the timeline to inspect hourly PM2.5 levels
-            </div>
-          )}
+        <div style={{ fontSize: '12px', color: darkMode ? '#94a3b8' : '#64748b', fontStyle: 'italic', textAlign: 'right' }}>
+          Hover along timeline to inspect hourly PM2.5, risk level, and recess window
         </div>
       </div>
 
+      {/* ------------------------------------------------------------- */}
+      {/* FLOATING INTERACTIVE HOVER TOOLTIP (Requirement 7)            */}
+      {/* ------------------------------------------------------------- */}
+      {hoveredData && tooltipPos && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${tooltipPos.x}px`,
+            top: `${tooltipPos.y}px`,
+            transform: 'translate(-50%, -115%)',
+            pointerEvents: 'none',
+            zIndex: 30,
+            backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+            backdropFilter: 'blur(8px)',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'}`,
+            boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.16)',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            minWidth: '160px',
+            fontSize: '12px',
+            lineHeight: 1.5,
+            transition: 'left 0.06s ease-out, top 0.06s ease-out'
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: '13px',
+              color: darkMode ? '#f8fafc' : '#0f172a',
+              marginBottom: '4px',
+              borderBottom: `1px solid ${darkMode ? '#334155' : '#f1f5f9'}`,
+              paddingBottom: '4px'
+            }}
+          >
+            {hoveredData.timeLabel}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
+            <span style={{ color: darkMode ? '#94a3b8' : '#64748b' }}>PM2.5:</span>
+            <strong style={{ color: hoveredData.statusColor }}>{hoveredData.pm25.toFixed(1)} µg/m³</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
+            <span style={{ color: darkMode ? '#94a3b8' : '#64748b' }}>Risk:</span>
+            <strong style={{ color: hoveredData.statusColor }}>{hoveredData.status}</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
+            <span style={{ color: darkMode ? '#94a3b8' : '#64748b' }}>School Hours:</span>
+            <strong style={{ color: hoveredData.hour >= 8 && hoveredData.hour <= 16 ? '#2563eb' : 'inherit' }}>
+              {hoveredData.hour >= 8 && hoveredData.hour <= 16 ? 'Yes' : 'No'}
+            </strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+            <span style={{ color: darkMode ? '#94a3b8' : '#64748b' }}>Recess/Lunch:</span>
+            <strong style={{ color: hoveredData.isRecess ? '#2563eb' : 'inherit' }}>
+              {hoveredData.isRecess ? 'Yes' : 'No'}
+            </strong>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* SVG CHART CONTAINER                                           */}
+      {/* ------------------------------------------------------------- */}
       <div style={{ width: '100%', overflowX: 'hidden' }}>
         <svg ref={svgRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
+      </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* CLEAN MODERN LEGEND (Requirement 8)                           */}
+      {/* ------------------------------------------------------------- */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '20px',
+          flexWrap: 'wrap',
+          marginTop: '12px',
+          paddingTop: '10px',
+          borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0'}`,
+          fontSize: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#16a34a' }} />
+          <span style={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Safe (0–25 µg/m³)</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+          <span style={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Caution (25–50 µg/m³)</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#dc2626' }} />
+          <span style={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600 }}>Unsafe (&gt; 50 µg/m³)</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ display: 'inline-block', width: '14px', height: '10px', borderRadius: '3px', backgroundColor: darkMode ? 'rgba(59, 130, 246, 0.4)' : '#bfdbfe', border: '1px solid #3b82f6' }} />
+          <span style={{ color: darkMode ? '#cbd5e1' : '#475569', fontWeight: 600 }}>School Recess & Lunch (10:30–13:30)</span>
+        </div>
       </div>
     </div>
   );

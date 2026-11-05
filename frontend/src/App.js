@@ -785,21 +785,21 @@ ${
                 {predictionResult.prediction === 0
                   ? 'Recess is a GO for all students'
                   : predictionResult.prediction === 1
-                  ? 'Caution: Asthmatic students remain indoors'
-                  : 'UNSAFE: Move all recess & PE indoors'}
+                  ? 'Caution: Students with asthma should stay indoors'
+                  : 'UNSAFE: Move all recess and outdoor activities indoors'}
               </Typography>
 
               <Typography variant="body1" sx={{ color: 'text.primary', mb: 2.5, lineHeight: 1.65, fontSize: { xs: '0.92rem', sm: '1rem' } }}>
                 {predictionResult.prediction === 0
-                  ? 'Air quality in the Luddenham corridor is optimal. Fine particulate matter (PM2.5) concentrations remain safely below NSW Health thresholds. Normal outdoor playtime, physical education, and athletic drills are authorized.'
+                  ? 'Air quality in the Luddenham area is clean and healthy. Smoke and dust levels (PM2.5) are well within safe guidelines. Normal outdoor playtime, sports, and playground activities are safe for all students.'
                   : predictionResult.prediction === 1
-                  ? 'Particulate matter is elevated due to moderate atmospheric stagnation. Children diagnosed with asthma or respiratory allergies must remain inside well-ventilated classrooms. Restrict high-intensity aerobic sprints for remaining classes.'
-                  : 'Severe particulate matter accumulation detected. High risk of triggering severe pediatric asthma exacerbations. Immediately cancel all outdoor sporting events, lunch breaks, and playground duty. Ensure classroom HVAC filtration is operational.'}
+                  ? 'Air pollution is slightly elevated today because of still air. Children with asthma or breathing sensitivities should stay inside in air-conditioned rooms. Other students should take regular water breaks and avoid intense running.'
+                  : 'Dangerous air pollution levels detected. High risk of triggering breathing difficulties and asthma attacks in children. All outdoor recess, sports, and playground duty are cancelled. Move all students into air-conditioned classrooms immediately.'}
               </Typography>
 
               {predictionResult.override_applied && (
                 <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }}>
-                  <strong>Child Safety Override Engaged:</strong> Due to extreme atmospheric conditions (high temp, low wind), our deterministic safety boundary overrode the raw statistical model to prioritize pediatric protection.
+                  <strong>Automatic Child Safety Rule Triggered:</strong> Because of extreme weather conditions (high heat and still air), outdoor activities are automatically paused to protect children's health.
                 </Alert>
               )}
 
@@ -848,10 +848,10 @@ ${
                 <Card sx={{ height: '100%', p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ mb: 1 }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                      PM2.5 Radial Safety Dial
+                      Air Pollution Dial (PM2.5)
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      Continuous fine particulate reading calibrated to Australian NEPM standards
+                      Live air pollution level based on Australian health guidelines
                     </Typography>
                   </Box>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', py: 1.5 }}>
@@ -1015,10 +1015,10 @@ ${
                 <Card sx={{ height: '100%', p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                      Environmental Telemetry Parameters
+                      Current Weather & Air Readings
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      Real-time atmospheric sensors at Luddenham station driving the classification model
+                      Live weather readings from the local weather station
                     </Typography>
                   </Box>
 
@@ -1028,16 +1028,16 @@ ${
                         title: 'Temperature',
                         val: `${currentWeather.temp} °C`,
                         icon: <TempIcon color="error" />,
-                        desc: 'Thermal sensor',
+                        desc: 'Air temperature',
                         accent: '#ef4444',
                         bgLight: '#fff5f5',
                         bgDark: 'rgba(239, 68, 68, 0.08)'
                       },
                       {
-                        title: 'Relative Humidity',
+                        title: 'Air Humidity',
                         val: `${currentWeather.humidity} %`,
                         icon: <HumidityIcon color="primary" />,
-                        desc: 'Moisture factor',
+                        desc: 'Air moisture',
                         accent: '#0284c7',
                         bgLight: '#f0f9ff',
                         bgDark: 'rgba(2, 132, 199, 0.08)'
@@ -1046,16 +1046,16 @@ ${
                         title: 'Wind Speed & Dir',
                         val: `${currentWeather.wind_speed} m/s`,
                         icon: <WindIcon color="info" />,
-                        desc: `Heading ${currentWeather.wind_dir}°`,
+                        desc: `Direction: ${currentWeather.wind_dir}°`,
                         accent: '#14b8a6',
                         bgLight: '#f0fdfa',
                         bgDark: 'rgba(20, 184, 166, 0.08)'
                       },
                       {
-                        title: 'Barometric Pressure',
+                        title: 'Air Pressure',
                         val: `${currentWeather.pressure} hPa`,
                         icon: <PressureIcon color="warning" />,
-                        desc: 'Atmospheric stability',
+                        desc: 'Normal air pressure',
                         accent: '#f59e0b',
                         bgLight: '#fffbeb',
                         bgDark: 'rgba(245, 158, 11, 0.08)'
@@ -1103,38 +1103,38 @@ ${
                 <Card sx={{ height: '100%', p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                      NSW Health Recess Activity Guidelines
+                      Recess Activity Safety Guidelines
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      Operational guidance matched to fine particulate matter concentration tiers
+                      Clear guidelines for school staff based on air quality levels
                     </Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, justifyContent: 'space-between' }}>
                     <Paper variant="outlined" sx={{ p: 1.6, borderLeft: 5, borderColor: 'success.main', borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'success.main' }}>
-                        Safe Tier (0 to 25 µg/m³ PM2.5)
+                        Safe Level (0 to 25 µg/m³ PM2.5)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
-                        Unrestricted outdoor playtime. All classes, physical education, and competitive athletic drills may proceed outdoors as scheduled.
+                        Safe outdoor air. All students can play outside. Normal recess, sports, and physical education can continue as planned.
                       </Typography>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 1.6, borderLeft: 5, borderColor: 'warning.main', borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'warning.main' }}>
-                        Caution Tier (25 to 50 µg/m³ PM2.5)
+                        Caution Level (25 to 50 µg/m³ PM2.5)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
-                        Asthma action plan activation. Vulnerable children remain indoors in filtered rooms. Non-asthmatic students limit intense aerobic running.
+                        Students with asthma should stay inside in air-conditioned rooms. Other students should take frequent water breaks and avoid heavy running.
                       </Typography>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 1.6, borderLeft: 5, borderColor: 'error.main', borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'error.main' }}>
-                        Unsafe Tier (&gt; 50 µg/m³ PM2.5)
+                        Unsafe Level (&gt; 50 µg/m³ PM2.5)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
-                        Complete outdoor recess shutdown. All students and staff remain inside sealed, air-filtered facilities until alerts clear.
+                        Hazardous air quality. Stop all outdoor recess and physical education. Move all students and classes into indoor air-conditioned rooms immediately.
                       </Typography>
                     </Paper>
                   </Box>
@@ -1151,20 +1151,20 @@ ${
           <Box className="fade-in">
             <Box sx={{ mb: 3 }}>
               <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.4rem', sm: '1.8rem', md: '2.1rem' } }}>
-                Atmospheric Condition Simulator
+                Weather & Atmospheric Condition Simulator
               </Typography>
               <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                Input meteorological parameters or select quick-fill presets to predict recess air safety for any hour of the day.
+                Test different weather conditions or choose a quick scenario to check recess air safety for any hour of the day.
               </Typography>
             </Box>
 
             {/* Form Full-Width */}
             <Card sx={{ p: { xs: 2, sm: 3.5 }, mb: 3.5 }}>
               <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                Environmental Input Parameters
+                Weather & Air Quality Settings
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-                Parameters mapped directly to the NSW SWAQ station sensors and Public Holiday calendar records.
+                Adjust temperature, humidity, wind, and schedule to test recess safety.
               </Typography>
 
               <PredictForm
@@ -1177,10 +1177,10 @@ ${
             {/* Balanced Two-Column Grid for Simulator Results */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                Simulation Prediction & Operational Analysis
+                Simulation Prediction & School Actions
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
-                Calculated air safety classification, confidence breakdown, and actionable school directives.
+                Air safety rating, probability breakdown, and recommended school actions.
               </Typography>
             </Box>
 
@@ -1238,10 +1238,10 @@ ${
 
                     {/* D3 Probability Donut Chart */}
                     <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
-                      AI Model Prediction Confidence
+                      Safety Level Chances
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
-                      Probability distribution across Safe, Caution, and Unsafe tiers
+                      Estimated chance of Safe, Caution, or Unsafe air quality
                     </Typography>
                     <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <D3ProbabilityDonut
@@ -1252,7 +1252,7 @@ ${
 
                     {predictionResult.override_applied && (
                       <Alert severity="warning" sx={{ mt: 2, textAlign: 'left', borderRadius: 2 }}>
-                        <strong>Deterministic Safety Rule Triggered:</strong> Stagnant heatwave conditions detected (Temp &gt; 30°C, RH &gt; 70%, Wind &lt; 3 m/s). Child safety is prioritized.
+                        <strong>Automatic Child Safety Rule Triggered:</strong> Very hot and humid weather with almost no wind detected. Student safety comes first.
                       </Alert>
                     )}
                   </>
@@ -1279,10 +1279,10 @@ ${
                   <>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                        Actionable School Directive
+                        What the School Should Do
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                        Operational advice for PE & playtime based on simulated atmospheric conditions
+                        Step-by-step guidance for teachers, nurses, and staff based on these weather conditions
                       </Typography>
 
                       <Paper
@@ -1303,33 +1303,33 @@ ${
                       >
                         <Typography variant="body1" sx={{ color: 'text.primary', fontWeight: 600, lineHeight: 1.65, fontSize: { xs: '0.92rem', sm: '1rem' } }}>
                           {predictionResult.prediction === 0
-                            ? 'Optimal outdoor conditions. Normal recess, physical education, and outdoor sports permitted for all students without restriction.'
+                            ? 'Great outdoor conditions. Normal recess, physical education, and outdoor sports permitted for all students without restriction.'
                             : predictionResult.prediction === 1
-                            ? 'Elevated caution advised. Asthmatic and medically vulnerable students should stay indoors in air-conditioned rooms. Non-asthmatic students must limit intense aerobic workouts.'
-                            : 'Hazardous air quality. Suspend outdoor recess. Move all students and classes into indoor air-conditioned facilities immediately.'}
+                            ? 'Take extra care. Students with asthma should stay indoors in air-conditioned rooms. Other students should take regular water breaks and avoid heavy running.'
+                            : 'Hazardous air quality. Cancel outdoor recess. Move all students and classes into indoor air-conditioned classrooms immediately.'}
                         </Typography>
                       </Paper>
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Paper variant="outlined" sx={{ p: 1.8, borderRadius: 2 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                            School Nurse Protocol:
+                            School Nurse Steps:
                           </Typography>
                           <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
                             {predictionResult.prediction === 0
-                              ? 'Standard playground supervision. Keep first aid kit accessible.'
+                              ? 'Standard playground first aid kit ready.'
                               : predictionResult.prediction === 1
-                              ? 'Conduct proactive inhaler check for registered asthmatic pupils.'
-                              : 'Prepare emergency nebulizers and notify administration of activity shutdown.'}
+                              ? 'Check that all students with asthma have their inhalers nearby.'
+                              : 'Prepare inhalers and help teachers move all children indoors.'}
                           </Typography>
                         </Paper>
 
                         <Paper variant="outlined" sx={{ p: 1.8, borderRadius: 2 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                            Facility Guidelines:
+                            Classroom & Building Guidelines:
                           </Typography>
                           <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3, fontSize: '0.88rem' }}>
-                            Ensure classroom HEPA filters and HVAC air-exchange are set to indoor recirculation.
+                            Keep classroom windows and doors closed. Turn on air conditioners and set filters to recirculate clean air inside.
                           </Typography>
                         </Paper>
                       </Box>
@@ -1359,24 +1359,24 @@ ${
           <Box className="fade-in">
             <Box sx={{ mb: 3 }}>
               <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.4rem', sm: '1.8rem', md: '2.1rem' } }}>
-                Air Quality Forecast & Trend Analysis
+                Air Quality Forecast & Daily Patterns
               </Typography>
               <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                Explore 24-hour diurnal cyclical variations and unsupervised K-Means atmospheric weather clustering (k=3).
+                See how air pollution changes throughout the day, when it is safest for outdoor recess, and how different weather types affect smoke and dust.
               </Typography>
             </Box>
 
             <Card sx={{ p: { xs: 2, sm: 3.5 }, mb: 3.5 }}>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                  24-Hour Diurnal Particulate Matter Curve (PM2.5)
+                  24-Hour PM2.5 Pattern
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Visualizes diurnal accumulation caused by early morning commuter rush hours and photochemical solar heating. Shaded band highlights primary school recess and lunch (10:30 - 13:30).
+                  Monitor hourly particulate matter concentration throughout the day, with school recess and lunch periods highlighted.
                 </Typography>
               </Box>
 
-              <D3DiurnalTrend activeParams={currentWeather} darkMode={darkMode} />
+              <D3DiurnalTrend activeParams={currentWeather} predictionResult={predictionResult} darkMode={darkMode} />
             </Card>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, alignItems: 'stretch' }}>
@@ -1384,10 +1384,10 @@ ${
               <Box>
                 <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%' }}>
                   <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                    Unsupervised Weather Clusters (K-Means k=3)
+                    Weather Patterns & Air Quality Groups
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                    Validates atmospheric profiles in Sydney (Silhouette score 0.265) without target leakage.
+                    Groups similar weather into 3 simple categories to show how heat, moisture, and wind change smoke levels.
                   </Typography>
                   <D3WeatherClusters darkMode={darkMode} />
                 </Card>
@@ -1397,18 +1397,18 @@ ${
               <Box>
                 <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%' }}>
                   <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                    Weekday vs Weekend Pollution Cycle
+                    Weekday vs Weekend Air Quality
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
-                    Anthropogenic emissions decline significantly during weekends and NSW Public Holidays.
+                    Air pollution drops noticeably on weekends and holidays because there is less car, truck, and bus traffic.
                   </Typography>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {[
-                      { day: 'Monday - Wednesday', val: '14.2 µg/m³', tag: 'Peak Commuter Traffic', color: 'info' },
-                      { day: 'Thursday - Friday', val: '15.8 µg/m³', tag: 'High Commercial Transit', color: 'info' },
-                      { day: 'Saturday - Sunday', val: '9.4 µg/m³', tag: '35% Traffic Reduction', color: 'success' },
-                      { day: 'NSW Public Holidays', val: '8.1 µg/m³', tag: 'School Bus & Heavy Fleet Suspended', color: 'success' }
+                      { day: 'Monday - Wednesday', val: '14.2 µg/m³', tag: 'Busy Work & School Traffic', color: 'info' },
+                      { day: 'Thursday - Friday', val: '15.8 µg/m³', tag: 'Heavy Delivery & Bus Traffic', color: 'info' },
+                      { day: 'Saturday - Sunday', val: '9.4 µg/m³', tag: 'Clean Weekend Air (Less Traffic)', color: 'success' },
+                      { day: 'NSW Public Holidays', val: '8.1 µg/m³', tag: 'Cleanest Air (No School Buses or Trucks)', color: 'success' }
                     ].map((item, idx) => (
                       <Paper key={idx} variant="outlined" sx={{ p: 1.8, borderRadius: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
@@ -1436,10 +1436,10 @@ ${
           <Box className="fade-in">
             <Box sx={{ mb: 3 }}>
               <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.4rem', sm: '1.8rem', md: '2.1rem' } }}>
-                Model Architecture & Scientific Rigor
+                How the AI Safety Model Works
               </Typography>
               <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                Complete documentation of Machine Learning workflows, feature engineering, and the Accuracy Paradox resolution.
+                How our computer model learns from weather data to make reliable, safety-first recess recommendations.
               </Typography>
             </Box>
 
@@ -1450,20 +1450,20 @@ ${
               sx={{ mb: 4, borderRadius: 3, p: { xs: 1.5, sm: 2 } }}
             >
               <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '0.95rem', sm: '1.05rem' } }}>
-                Critical Analysis: Resolving the "Accuracy Paradox" in Child Health Decisions
+                Why 99% Accuracy Isn't Enough: Putting Student Safety First
               </Typography>
               <Typography variant="body2" sx={{ lineHeight: 1.6, fontSize: { xs: '0.86rem', sm: '0.92rem' } }}>
-                In Assignment 2, our 100-tree Random Forest scored <strong>98.9% overall accuracy</strong>. However, rigorous confusion matrix scrutiny revealed a near-zero recall for the "Unsafe" class. Because hazardous pollution days represent &lt;1% of Sydney's historical data, a naive model achieves 99% accuracy by predicting "Safe" 100% of the time—a catastrophic failure mode for an asthmatic child. To fix this, our pipeline deploys <code>class_weight='balanced'</code> penalty scaling in Scikit-Learn alongside a deterministic safety override for severe weather inversions.
+                On paper, a computer model can easily reach <strong>98.9% overall accuracy</strong> simply by guessing "Safe" every single day—because truly hazardous air pollution days are rare in Sydney. But guessing "Safe" on a dangerous smoke day could put an asthmatic child in serious danger. To protect students, our AI model is specifically tuned to catch rare dangerous days, with strict safety backup rules whenever dangerous smoke or heat is detected.
               </Typography>
             </Alert>
 
             {/* Full-Width Feature Importance Chart */}
             <Card sx={{ p: { xs: 2, sm: 3.5 }, mb: 3.5 }}>
               <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                Random Forest Gini Feature Importances (D3.js)
+                Which Weather Factors Matter Most?
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                Relative Humidity (29.8%) and Temperature (20.5%) dominate classification, confirming atmospheric boundary layer inversion theory.
+                Air moisture (29.8%) and temperature (20.5%) have the biggest impact on whether smoke and dust get trapped near school grounds.
               </Typography>
               <D3FeatureImportance data={featureImportances} darkMode={darkMode} />
             </Card>
@@ -1474,46 +1474,46 @@ ${
               <Box>
                 <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                    Algorithmic Benchmark Scorecard
+                    Comparing 3 AI Methods
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
-                    Empirical comparison across the 3 machine learning algorithms evaluated.
+                    How we tested three different computer methods to find the safest and most reliable one.
                   </Typography>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, justifyContent: 'space-between' }}>
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        1. Multiple Linear Regression (Baseline)
+                        1. Simple Straight-Line Model (Basic Baseline)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.4 }}>
-                        R² = 0.123, MAE = 2.36
+                        Low Accuracy · Fails on complex weather
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600, display: 'block' }}>
-                        Outcome: Fails to capture non-linear atmospheric turbulence; proves necessity of ensemble trees.
+                        Why it was rejected: Too simple to handle sudden weather changes or trapped smoke.
                       </Typography>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        2. Random Forest Classifier (Operational Core)
+                        2. Random Forest Model (Our Chosen System)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.4 }}>
-                        Accuracy: 98.9%, 100 Estimators, Balanced Class Weights
+                        98.9% Accuracy · Tuned for student safety
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600, display: 'block' }}>
-                        Outcome: Accurately classifies multi-variable inversion interactions.
+                        Why we use it: Combines 100 decision trees to accurately detect hazardous air conditions.
                       </Typography>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        3. K-Means Clustering (Unsupervised Profiling)
+                        3. Pattern Clustering (Weather Grouping)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.4 }}>
-                        k = 3, Silhouette Score: 0.265
+                        Sorted into 3 distinct weather types
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600, display: 'block' }}>
-                        Outcome: Successfully segments Stagnant Inversion vs Maritime Dispersal profiles.
+                        Why we use it: Automatically separates clean ocean breeze days from hot, still air days.
                       </Typography>
                     </Paper>
                   </Box>
@@ -1524,37 +1524,37 @@ ${
               <Box>
                 <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                    Dual-Platform Architecture (Python + KNIME)
+                    How Data Moves From Weather Stations to You
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
-                    Ensures end-to-end data lineage transparency and reproducible model validation.
+                    Clear, transparent steps ensure data is verified and reliable from start to finish.
                   </Typography>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, justifyContent: 'space-between' }}>
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
-                        Phase 1: Ingestion & Relational Merging
+                        Step 1: Collecting Weather & School Calendar Data
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55, fontSize: '0.88rem' }}>
-                        20-minute interval readings from Luddenham station merged via a Left Outer Join with the official NSW Public Holidays (2019–2023) calendar, achieving zero data loss.
+                        Live readings from the Luddenham weather station are recorded every 20 minutes and combined with official school day and holiday calendars.
                       </Typography>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
-                        Phase 2: KNN Imputation & Leakage Prevention
+                        Step 2: Checking Data Quality & Safety Rules
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55, fontSize: '0.88rem' }}>
-                        Applied 5-Nearest Neighbors (k-NN, k=5) spatial imputation to preserve multidimensional variance. Explicitly dropped continuous PM2.5 prior to classification to prevent leakage.
+                        Any missing sensor readings are filled in using nearby observations, and safety rules double-check that dangerous conditions are never missed.
                       </Typography>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
-                        Phase 3: Full-Stack FastAPI & D3.js Deployment
+                        Step 3: Instant Recess Safety Advice on Screen
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55, fontSize: '0.88rem' }}>
-                        Serialized scaler.pkl and rf_model.pkl loaded in FastAPI backend with Pydantic validation, consumed asynchronously by this responsive React frontend with D3.js visualization.
+                        The safety model runs behind the scenes and immediately sends up-to-date recess recommendations and interactive charts to your screen.
                       </Typography>
                     </Paper>
                   </Box>
@@ -1572,10 +1572,10 @@ ${
             {/* Page Header */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.4rem', sm: '1.8rem', md: '2.1rem' } }}>
-                School Health & Asthma Emergency SOP
+                School Health & Action Guidelines
               </Typography>
               <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                Operational guidelines compliant with Asthma Australia and the NSW Department of Education Student Health Policy.
+                Clear safety steps and playground rules based on Asthma Australia and NSW school health guidelines.
               </Typography>
             </Box>
 
@@ -1604,10 +1604,10 @@ ${
                     </Typography>
                   </Box>
                   <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5, fontSize: { xs: '1.15rem', sm: '1.35rem' } }}>
-                    4x4 Asthma First Aid Rule: Sit Upright, 4 Puffs, 4 Minutes
+                    Asthma 4x4 First Aid Rule: Sit Upright, 4 Puffs, Wait 4 Minutes
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55 }}>
-                    Never leave an asthmatic student unattended during a respiratory attack. Administer blue reliever through a spacer immediately.
+                    Never leave a student who is struggling to breathe alone. Give blue reliever through a spacer right away.
                   </Typography>
                 </Box>
 
@@ -1620,7 +1620,7 @@ ${
                     startIcon={<EmergencyIcon />}
                     sx={{ borderRadius: 2, fontWeight: 700, px: 2.5, width: { xs: '100%', sm: 'auto' }, minHeight: 42 }}
                   >
-                    Open Emergency SOP Modal
+                    Open Emergency Guide
                   </Button>
                   <Button
                     component="a"
@@ -1667,20 +1667,20 @@ ${
                     </Box>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                        4-Step Asthma First Aid Protocol
+                        4-Step Asthma First Aid Guide
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        Asthma Australia Standard Procedure for Schools
+                        Standard procedure from Asthma Australia
                       </Typography>
                     </Box>
                   </Box>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, my: 2 }}>
                     {[
-                      { step: 'Step 1', title: 'Sit the child upright', text: 'Be calm and reassuring. Do not leave the child alone. Loosen tight clothing around their neck and chest.' },
-                      { step: 'Step 2', title: 'Give 4 separate puffs of blue/grey reliever', text: 'Shake the inhaler canister. Insert 1 puff into spacer. Take 4 breaths from spacer. Repeat until 4 puffs are completed.' },
-                      { step: 'Step 3', title: 'Wait 4 minutes', text: 'If there is no breathing improvement, give 4 more separate puffs as in Step 2. Keep the child seated quietly.' },
-                      { step: 'Step 4', title: 'If no improvement, Call 000 immediately', text: 'Dial 000 for an emergency ambulance. Continue administering 4 separate puffs every 4 minutes until paramedics arrive.' }
+                      { step: 'Step 1', title: 'Sit the student upright', text: 'Stay calm and reassuring. Do not leave the student alone. Loosen tight clothing around their neck and chest.' },
+                      { step: 'Step 2', title: 'Give 4 puffs of blue reliever', text: 'Shake the puffer. Put 1 puff into spacer. Have student take 4 normal breaths. Repeat until 4 puffs are completed.' },
+                      { step: 'Step 3', title: 'Wait 4 minutes', text: 'If breathing does not improve, give 4 more separate puffs as in Step 2. Keep the student seated quietly.' },
+                      { step: 'Step 4', title: 'If no improvement, Call 000 immediately', text: 'Call 000 for an emergency ambulance. Continue giving 4 puffs every 4 minutes until paramedics arrive.' }
                     ].map((s, idx) => (
                       <Paper
                         key={idx}
@@ -1712,7 +1712,7 @@ ${
                   onClick={() => setEmergencyDialogOpen(true)}
                   sx={{ borderRadius: 2, fontWeight: 700, mt: 1, py: 1 }}
                 >
-                  View Full-Screen Emergency SOP
+                  View Full Emergency Steps
                 </Button>
               </Card>
 
@@ -1737,10 +1737,10 @@ ${
                     </Box>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                        Playground Duty & PE Directives
+                        Playground Duty & Sports Rules
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        NSW Department of Education Activity Guidance
+                        Simple rules for teachers during recess and PE classes
                       </Typography>
                     </Box>
                   </Box>
@@ -1748,28 +1748,28 @@ ${
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, my: 2 }}>
                     {[
                       {
-                        badge: 'SUPERVISION',
+                        badge: 'STUDENT CHECK',
                         color: 'primary',
-                        title: 'Pre-Recess Asthmatic Student Verification',
-                        text: 'Duty teachers verify that students on the Asthma Register have their reliever puffers and spacers readily accessible before entering the oval.'
+                        title: 'Check Asthmatic Students Before Recess',
+                        text: 'Duty teachers make sure students with asthma have their blue puffers and spacers nearby before heading out to the oval.'
                       },
                       {
-                        badge: 'CAUTION TIER',
+                        badge: 'CAUTION LEVEL',
                         color: 'warning',
-                        title: 'Exercise Modification (PM2.5: 25–50 µg/m³)',
-                        text: 'Restrict intense cardiovascular endurance drills (beep tests, interval sprints). Transition students to low-intensity technical skills drills.'
+                        title: 'Gentle Exercise Only (Air Pollution 25–50 µg/m³)',
+                        text: 'Avoid running races, beep tests, and fast sprints. Switch to gentle skills, passing drills, or walking games.'
                       },
                       {
-                        badge: 'UNSAFE TIER',
+                        badge: 'UNSAFE LEVEL',
                         color: 'error',
-                        title: 'Indoor Facility Relocation (PM2.5 > 50 µg/m³)',
-                        text: 'Immediately suspend outdoor playtime and sports. Escort students into air-conditioned, filtered indoor gymnasiums or the school library.'
+                        title: 'Move All Students Indoors (Air Pollution Over 50 µg/m³)',
+                        text: 'Stop all outdoor play and sports immediately. Move students into air-conditioned classrooms, the gym, or the library.'
                       },
                       {
-                        badge: 'FACILITY',
+                        badge: 'CLEAN AIR',
                         color: 'info',
-                        title: 'Classroom Air Recirculation Management',
-                        text: 'Ensure all external windows and doors remain closed during inversion events. Verify HVAC systems operate in indoor recirculation mode.'
+                        title: 'Keep Windows and Doors Closed',
+                        text: 'Keep classroom windows and outside doors shut during smoky or dusty days. Keep air conditioners running on inside recirculation.'
                       }
                     ].map((d, idx) => (
                       <Paper
@@ -1805,7 +1805,7 @@ ${
                   onClick={() => setExportDialogOpen(true)}
                   sx={{ borderRadius: 2, fontWeight: 700, mt: 1, py: 1 }}
                 >
-                  Export Duty Teacher Protocol
+                  Export Duty Teacher Checklist
                 </Button>
               </Card>
             </Box>
@@ -1823,10 +1823,10 @@ ${
               <Card sx={{ p: { xs: 2, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-                    Emergency Hotline Directory (Tap to Call)
+                    Emergency Phone Numbers (Tap to Call)
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                    Direct phone lines for immediate emergency dispatch, medical advice, and toxic exposure support.
+                    Direct phone lines for immediate emergency dispatch, medical advice, and smoke questions.
                   </Typography>
 
                   <List dense sx={{ p: 0 }}>
@@ -1848,7 +1848,7 @@ ${
                         </ListItemIcon>
                         <ListItemText
                           primary="000 — Emergency Services (Ambulance / Police)"
-                          secondary="Tap to call immediately for severe asthma attacks or respiratory failure."
+                          secondary="Tap to call immediately for severe asthma attacks or difficulty breathing."
                           primaryTypographyProps={{ fontWeight: 800, color: 'error.main', fontSize: '0.92rem' }}
                           secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
                         />
@@ -1873,7 +1873,7 @@ ${
                         </ListItemIcon>
                         <ListItemText
                           primary="13 11 26 — NSW Poisons Information Centre"
-                          secondary="24/7 specialist medical advice on hazardous smoke and particulate inhalation."
+                          secondary="24/7 medical advice on smoke, dust, and chemical fumes inhalation."
                           primaryTypographyProps={{ fontWeight: 700, fontSize: '0.9rem' }}
                           secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
                         />
@@ -1898,7 +1898,7 @@ ${
                         </ListItemIcon>
                         <ListItemText
                           primary="1800 ASTHMA (1800 278 462) — Asthma Australia"
-                          secondary="Free helpline for school asthma management guidelines and clinical support."
+                          secondary="Free helpline for advice on managing asthma in schools."
                           primaryTypographyProps={{ fontWeight: 700, fontSize: '0.9rem' }}
                           secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
                         />
@@ -1909,7 +1909,7 @@ ${
 
                 <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, mt: 1, backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.2)' : '#f1f5f9' }}>
                   <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 600 }}>
-                    Internal School Intercom: Dial Extension <strong>402</strong> for the Front Office & Nurse Station.
+                    Internal School Intercom: Dial Extension <strong>402</strong> for the Front Office & Sick Bay.
                   </Typography>
                 </Paper>
               </Card>
@@ -1921,7 +1921,7 @@ ${
                     Notify School Health & Safety Officer
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                    Direct dispatch system to notify the on-duty school nurse or PE department regarding air quality symptoms.
+                    Quick alert system to message the on-duty school nurse or PE teacher about smoke or breathing symptoms.
                   </Typography>
 
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 2.5 }}>
@@ -1930,34 +1930,34 @@ ${
                         ON-DUTY NURSE
                       </Typography>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'success.main' }}>
-                        Station Clinic (Bldg B)
+                        School Sick Bay (Bldg B)
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        Available 8:00–16:00
+                        Available 8:00 AM – 4:00 PM
                       </Typography>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                       <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
-                        HVAC AIR FILTERS
+                        CLEAN AIR ROOMS
                       </Typography>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                        HEPA Active (Recirc)
+                        Air Filters Running
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        Classrooms 101–124
+                        Classrooms 101–124 & Hall
                       </Typography>
                     </Paper>
                   </Box>
 
                   <Paper variant="outlined" sx={{ p: 1.8, borderRadius: 2, mb: 2.5, borderLeft: 4, borderColor: 'primary.main' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      When to submit an incident dispatch:
+                      When to send a report:
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.86rem', lineHeight: 1.5 }}>
-                      • A student reports shortness of breath or persistent coughing during recess.<br />
-                      • Visible hazard reduction burn smoke is observed drifting across the oval.<br />
-                      • First aid kit replacement or spacer replenishment is required.
+                      • A student reports coughing or shortness of breath during recess.<br />
+                      • Visible smoke or dust is blowing across the school grounds.<br />
+                      • The first aid kit needs more blue reliever puffers or spacers.
                     </Typography>
                   </Paper>
                 </Box>
@@ -2061,10 +2061,10 @@ ${
                 Support & Contact
               </Button>
               <Button size="small" color="inherit" onClick={() => setExportDialogOpen(true)}>
-                Briefing Generator
+                Download Report
               </Button>
               <Button size="small" color="inherit" onClick={() => setActiveTab(3)}>
-                Algorithm Specs
+                How Model Works
               </Button>
             </Box>
           </Box>
@@ -2083,7 +2083,7 @@ ${
       >
         <DialogTitle sx={{ fontWeight: 800, color: 'error.main', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <EmergencyIcon /> Asthma First Aid Emergency Protocol
+            <EmergencyIcon /> Asthma First Aid Emergency Guide
           </Box>
           {isMobile && (
             <IconButton onClick={() => setEmergencyDialogOpen(false)} size="small" aria-label="Close dialog">
@@ -2093,20 +2093,20 @@ ${
         </DialogTitle>
         <DialogContent dividers>
           <DialogContentText sx={{ mb: 2, color: 'text.primary', fontWeight: 600 }}>
-            If a student demonstrates difficulty breathing, coughing, wheezing, or chest tightness:
+            If a student has difficulty breathing, coughing, wheezing, or chest tightness:
           </DialogContentText>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-              <strong>1. Sit student upright:</strong> Keep them calm. Do NOT leave them alone.
+              <strong>1. Sit the student upright:</strong> Keep them calm. Do NOT leave them alone.
             </Paper>
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-              <strong>2. Give 4 puffs of blue reliever:</strong> Use a spacer. Shake inhaler, 1 puff into spacer, 4 breaths. Repeat 4 times.
+              <strong>2. Give 4 puffs of blue reliever:</strong> Use a spacer. Shake the puffer, 1 puff into spacer, 4 breaths. Repeat 4 times.
             </Paper>
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-              <strong>3. Wait 4 minutes:</strong> If no improvement, administer 4 more puffs.
+              <strong>3. Wait 4 minutes:</strong> If breathing does not improve, give 4 more puffs.
             </Paper>
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: 'error.main', backgroundColor: darkMode ? 'rgba(211,47,47,0.1)' : '#ffebee' }}>
-              <strong>4. If still no improvement: CALL 000 IMMEDIATELY.</strong> Keep administering 4 puffs every 4 minutes until ambulance arrives.
+              <strong>4. If still no improvement: CALL 000 IMMEDIATELY.</strong> Keep giving 4 puffs every 4 minutes until ambulance arrives.
             </Paper>
 
             <Button
@@ -2125,7 +2125,7 @@ ${
         </DialogContent>
         <DialogActions sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Button onClick={() => setEmergencyDialogOpen(false)} variant="outlined" color="inherit">
-            Acknowledge & Close
+            Close Guide
           </Button>
         </DialogActions>
       </Dialog>
@@ -2141,7 +2141,7 @@ ${
         fullScreen={isMobile}
       >
         <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>Export Daily Recess Safety Briefing</span>
+          <span>Download Daily Recess Safety Summary</span>
           {isMobile && (
             <IconButton onClick={() => setExportDialogOpen(false)} size="small" aria-label="Close dialog">
               <CloseIcon />
@@ -2150,7 +2150,7 @@ ${
         </DialogTitle>
         <DialogContent dividers>
           <DialogContentText sx={{ mb: 2 }}>
-            This summary briefing is formatted for distribution to morning duty teachers, physical education coordinators, and front-office health administrators.
+            This summary briefing is formatted for morning duty teachers, physical education coordinators, and front-office health administrators.
           </DialogContentText>
           <Paper
             variant="outlined"
@@ -2167,21 +2167,21 @@ ${
           >
 {`[RECESS SAFETY ADVISOR - DAILY SUMMARY BRIEFING]
 Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
-Station: Luddenham (LUDD), Western Sydney
-Classified Safety Level: ${predictionResult.label.toUpperCase()}
-Fine Particulate Matter (PM2.5): ${predictionResult.estimated_pm25} µg/m³
-Temperature: ${currentWeather.temp} °C | Humidity: ${currentWeather.humidity} %
-Wind Speed: ${currentWeather.wind_speed} m/s | Pressure: ${currentWeather.pressure} hPa
+Weather Station: Luddenham, Western Sydney
+Recess Safety Status: ${predictionResult.label.toUpperCase()}
+Air Pollution Level (PM2.5): ${predictionResult.estimated_pm25} µg/m³
+Temperature: ${currentWeather.temp} °C | Air Humidity: ${currentWeather.humidity} %
+Wind Speed: ${currentWeather.wind_speed} m/s | Air Pressure: ${currentWeather.pressure} hPa
 
-Directive: ${
+Safety Recommendation: ${
   predictionResult.prediction === 0
     ? 'SAFE: Normal outdoor recess and sports allowed.'
     : predictionResult.prediction === 1
-    ? 'CAUTION: Asthmatic children remain inside. Limit intense running.'
-    : 'UNSAFE: Suspend all outdoor activities. Move classes indoors.'
+    ? 'CAUTION: Students with asthma should stay inside. Limit vigorous running.'
+    : 'UNSAFE: Stop all outdoor activities. Move classes indoors.'
 }
 
-Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
+Decision Model: Random Forest Decision Trees (100 Trees)`}
           </Paper>
         </DialogContent>
         <DialogActions sx={{ p: { xs: 1.5, sm: 2 } }}>
@@ -2214,7 +2214,7 @@ Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
         </DialogTitle>
         <DialogContent dividers>
           <DialogContentText sx={{ mb: 2 }}>
-            Submit an environmental question or report localized smoke/haze near the school grounds.
+            Send an environmental question or report localized smoke, dust, or air concerns near the school grounds.
           </DialogContentText>
           <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
@@ -2234,9 +2234,9 @@ Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
               onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })}
             >
               <MenuItem value="Teacher">Classroom Teacher</MenuItem>
-              <MenuItem value="PE Coordinator">Physical Education Coordinator</MenuItem>
+              <MenuItem value="PE Coordinator">Physical Education / Sports Teacher</MenuItem>
               <MenuItem value="School Nurse">School Nurse / First Aid Officer</MenuItem>
-              <MenuItem value="Administrator">Principal / Administrator</MenuItem>
+              <MenuItem value="Administrator">Principal / Front Office Staff</MenuItem>
               <MenuItem value="Parent">Parent / Guardian</MenuItem>
             </TextField>
             <TextField
@@ -2254,7 +2254,7 @@ Model Architecture: Random Forest (100 Estimators) + K-NN Imputation (k=5)`}
               multiline
               rows={3}
               label="Details / Observations"
-              placeholder="e.g. Visible hazard reduction smoke detected near northern oval..."
+              placeholder="e.g. Visible smoke detected near northern oval, or student coughing during lunch..."
               value={contactForm.message}
               onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
             />
