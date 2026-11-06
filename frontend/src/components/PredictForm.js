@@ -22,7 +22,11 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 
+<<<<<<< HEAD
+const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+=======
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+>>>>>>> zhaoshean
 
 // Preset configurations based on Sydney weather archetypes
 const PRESETS = {
@@ -31,6 +35,26 @@ const PRESETS = {
     data: { temp: 22.0, humidity: 62.0, wind_speed: 3.5, wind_dir: 45, rain: 0.0, pressure: 1016.0, hour: 10, day_of_week: 1, is_holiday: 0 }
   },
   rainy: {
+<<<<<<< HEAD
+    name: 'Humid & Rainy (Cleansing)',
+    data: { temp: 17.5, humidity: 92.0, wind_speed: 6.0, wind_dir: 180, rain: 8.5, pressure: 1010.0, hour: 11, day_of_week: 2, is_holiday: 0 }
+  },
+  windy: {
+    name: 'High Wind Dispersal',
+    data: { temp: 19.0, humidity: 45.0, wind_speed: 16.5, wind_dir: 270, rain: 0.0, pressure: 1013.0, hour: 12, day_of_week: 3, is_holiday: 0 }
+  },
+  heat: {
+    name: 'Summer Heatwave (Inversion)',
+    data: { temp: 37.0, humidity: 82.0, wind_speed: 0.8, wind_dir: 315, rain: 0.0, pressure: 1008.0, hour: 13, day_of_week: 4, is_holiday: 0 }
+  },
+  haze: {
+    name: 'Bushfire Smoke / High Haze',
+    data: { temp: 34.0, humidity: 28.0, wind_speed: 2.1, wind_dir: 290, rain: 0.0, pressure: 1021.0, hour: 12, day_of_week: 5, is_holiday: 0 }
+  }
+};
+
+export default function PredictForm({ onPredict, onBackendStatusChange }) {
+=======
     name: 'Humid & Rainy (Cleans the Air)',
     data: { temp: 17.5, humidity: 92.0, wind_speed: 6.0, wind_dir: 180, rain: 8.5, pressure: 1010.0, hour: 11, day_of_week: 2, is_holiday: 0 }
   },
@@ -49,6 +73,7 @@ const PRESETS = {
 };
 
 export default function PredictForm({ onPredict, onBackendStatusChange, onLoadingChange }) {
+>>>>>>> zhaoshean
   const [formData, setFormData] = useState({ ...PRESETS.calm.data });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -68,6 +93,15 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
     setFormData(prev => ({ ...prev, [name]: newValue }));
   };
 
+<<<<<<< HEAD
+  const applyPreset = (key) => {
+    setFormData({ ...PRESETS[key].data });
+    setErrors({});
+    setInfoMessage(`Loaded preset: "${PRESETS[key].name}"`);
+  };
+
+=======
+>>>>>>> zhaoshean
   const validate = () => {
     const newErrors = {};
     const t = Number(formData.temp);
@@ -89,7 +123,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
   const calculateLocalPrediction = (data) => {
     const rush = Math.exp(-Math.pow((data.hour - 8) / 2.5, 2)) + 0.6 * Math.exp(-Math.pow((data.hour - 18) / 2.5, 2));
     const baseEstimate = 12 + 1.6 * Math.max(0, data.temp - 20) - 0.25 * (data.humidity - 50) - 0.3 * data.wind_speed + 0.6 * (data.pressure - 1013) - 6 * data.rain + 5 * rush - (data.is_holiday ? 2 : 0);
+<<<<<<< HEAD
+    const pm25 = Math.max(1, Math.min(130, Math.round(baseEstimate * 10) / 10));
+=======
     let pm25 = Math.max(1, Math.min(130, Math.round(baseEstimate * 10) / 10));
+>>>>>>> zhaoshean
 
     let prediction = 0;
     let label = 'Safe';
@@ -105,7 +143,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
       probabilities = [0.15, 0.72, 0.13];
     }
 
+<<<<<<< HEAD
+    // Safety rule override for extreme atmospheric conditions
+=======
     // Safety rule override for extreme atmospheric conditions (synchronized with backend)
+>>>>>>> zhaoshean
     let overrideApplied = false;
     if (data.temp > 35 && data.humidity > 75 && data.wind_speed < 1.5) {
       prediction = 2;
@@ -119,6 +161,8 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
       overrideApplied = true;
     }
 
+<<<<<<< HEAD
+=======
     // Strictly synchronize estimated PM2.5 with health safety classification:
     // Under Australian NEPM & NSW Health guidelines:
     // - Safe: 0 to 25 µg/m³ (Green)
@@ -132,6 +176,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
       pm25 = Math.min(24.5, pm25);
     }
 
+>>>>>>> zhaoshean
     return {
       prediction,
       label,
@@ -142,6 +187,8 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
     };
   };
 
+<<<<<<< HEAD
+=======
   // Reusable core prediction executor with live-backend and local fallback sync
   const executePrediction = async (submissionData) => {
     setLoading(true);
@@ -185,10 +232,15 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
     await executePrediction(presetData);
   };
 
+>>>>>>> zhaoshean
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!validate()) return;
 
+<<<<<<< HEAD
+    // Ensure all numeric values are properly cast
+=======
+>>>>>>> zhaoshean
     const submissionData = {
       ...formData,
       temp: Number(formData.temp),
@@ -198,9 +250,43 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
       pressure: Number(formData.pressure)
     };
 
+<<<<<<< HEAD
+    setLoading(true);
+    setInfoMessage(null);
+
+    try {
+      // Attempt live request to FastAPI backend
+      const response = await axios.post(`${API_BASE}/predict`, submissionData, { timeout: 2500 });
+      if (onBackendStatusChange) onBackendStatusChange(true);
+
+      const localEst = calculateLocalPrediction(submissionData);
+      onPredict({
+        ...response.data,
+        estimated_pm25: localEst.estimated_pm25,
+        is_fallback: false,
+        input_params: { ...submissionData }
+      });
+      setInfoMessage('Prediction successfully retrieved from FastAPI backend server (Live AI Model).');
+    } catch (err) {
+      console.warn('FastAPI backend not reachable; switching to verified local model.', err);
+      if (onBackendStatusChange) onBackendStatusChange(false);
+
+      const localResult = calculateLocalPrediction(submissionData);
+      onPredict({
+        ...localResult,
+        input_params: { ...submissionData }
+      });
+      setInfoMessage('FastAPI backend is offline; computed prediction using verified local ML simulation engine.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+=======
     await executePrediction(submissionData);
   };
 
+>>>>>>> zhaoshean
   return (
     <Box component="form" onSubmit={handleSubmit} noValidate>
       {/* Quick Scenario Presets Toolbar */}
@@ -211,7 +297,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: 1.5,
+<<<<<<< HEAD
+          p: 1.5,
+=======
           p: { xs: 1.2, sm: 1.5 },
+>>>>>>> zhaoshean
           mb: 3,
           borderRadius: 2,
           backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'),
@@ -241,8 +331,12 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
               color="primary"
               variant="outlined"
               clickable
+<<<<<<< HEAD
+              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+=======
               disabled={loading}
               sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
+>>>>>>> zhaoshean
             />
             <Chip
               size="small"
@@ -251,18 +345,30 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
               onClick={() => applyPreset('rainy')}
               variant="outlined"
               clickable
+<<<<<<< HEAD
+              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+=======
               disabled={loading}
               sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
+>>>>>>> zhaoshean
             />
             <Chip
               size="small"
               icon={<WindIcon fontSize="small" />}
+<<<<<<< HEAD
+              label="High Wind Dispersal"
+              onClick={() => applyPreset('windy')}
+              variant="outlined"
+              clickable
+              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+=======
               label="High Wind (Clears Air)"
               onClick={() => applyPreset('windy')}
               variant="outlined"
               clickable
               disabled={loading}
               sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
+>>>>>>> zhaoshean
             />
             <Chip
               size="small"
@@ -272,8 +378,12 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
               color="warning"
               variant="outlined"
               clickable
+<<<<<<< HEAD
+              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+=======
               disabled={loading}
               sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
+>>>>>>> zhaoshean
             />
             <Chip
               size="small"
@@ -283,14 +393,22 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
               color="error"
               variant="outlined"
               clickable
+<<<<<<< HEAD
+              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+=======
               disabled={loading}
               sx={{ fontWeight: 600, fontSize: '0.78rem', minHeight: 32 }}
+>>>>>>> zhaoshean
             />
           </Box>
         </Box>
 
         <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: { xs: 'none', lg: 'block' } }}>
+<<<<<<< HEAD
+          Calibrated to Sydney SWAQ Luddenham Station Telemetry
+=======
           Live readings from Luddenham Weather Station (Western Sydney)
+>>>>>>> zhaoshean
         </Typography>
       </Box>
 
@@ -300,7 +418,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
         </Alert>
       )}
 
+<<<<<<< HEAD
+      {/* SECTION 1: Core Atmospheric Telemetry (Symmetrical 4-Column Grid) */}
+=======
       {/* SECTION 1: Core Weather Sensors */}
+>>>>>>> zhaoshean
       <Box sx={{ mb: 2.5 }}>
         <Typography
           variant="caption"
@@ -313,7 +435,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             mb: 1.2
           }}
         >
+<<<<<<< HEAD
+          1. Continuous Meteorological Telemetry Sensors
+=======
           1. Live Weather & Continuous Meteorological Telemetry Sensors
+>>>>>>> zhaoshean
         </Typography>
 
         <Box
@@ -327,7 +453,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
           <Paper
             variant="outlined"
             sx={{
+<<<<<<< HEAD
+              p: 1.75,
+=======
               p: { xs: 1.5, sm: 1.75 },
+>>>>>>> zhaoshean
               borderRadius: 2,
               display: 'flex',
               flexDirection: 'column',
@@ -342,22 +472,40 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+<<<<<<< HEAD
+              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+=======
               <Typography
                 component="label"
                 htmlFor="temp-number-input"
                 variant="body2"
                 sx={{ fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
               >
+>>>>>>> zhaoshean
                 Temperature
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TextField
+<<<<<<< HEAD
+=======
                   id="temp-number-input"
+>>>>>>> zhaoshean
                   size="small"
                   type="number"
                   name="temp"
                   value={formData.temp}
                   onChange={handleChange}
+<<<<<<< HEAD
+                  inputProps={{ min: -10, max: 50, step: 0.5 }}
+                  sx={{
+                    width: 66,
+                    '& .MuiInputBase-input': {
+                      py: 0.25,
+                      px: 0.8,
+                      textAlign: 'right',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+=======
                   inputProps={{
                     id: "temp-number-input",
                     min: -10,
@@ -374,24 +522,36 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
                       textAlign: 'right',
                       fontWeight: 800,
                       fontSize: '0.88rem',
+>>>>>>> zhaoshean
                       color: 'primary.main'
                     }
                   }}
                 />
+<<<<<<< HEAD
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+=======
                 <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+>>>>>>> zhaoshean
                   °C
                 </Typography>
               </Box>
             </Box>
 
             <Slider
+<<<<<<< HEAD
+              size="small"
+=======
               size="medium"
+>>>>>>> zhaoshean
               value={typeof formData.temp === 'number' ? formData.temp : 20}
               min={-5}
               max={45}
               step={0.5}
               onChange={handleSliderChange('temp')}
+<<<<<<< HEAD
+=======
               aria-label="Temperature slider in Celsius"
+>>>>>>> zhaoshean
               sx={{ my: 0.8 }}
             />
 
@@ -417,7 +577,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
           <Paper
             variant="outlined"
             sx={{
+<<<<<<< HEAD
+              p: 1.75,
+=======
               p: { xs: 1.5, sm: 1.75 },
+>>>>>>> zhaoshean
               borderRadius: 2,
               display: 'flex',
               flexDirection: 'column',
@@ -432,22 +596,40 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+<<<<<<< HEAD
+              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+=======
               <Typography
                 component="label"
                 htmlFor="humidity-number-input"
                 variant="body2"
                 sx={{ fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
               >
+>>>>>>> zhaoshean
                 Relative Humidity
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TextField
+<<<<<<< HEAD
+=======
                   id="humidity-number-input"
+>>>>>>> zhaoshean
                   size="small"
                   type="number"
                   name="humidity"
                   value={formData.humidity}
                   onChange={handleChange}
+<<<<<<< HEAD
+                  inputProps={{ min: 0, max: 100, step: 1 }}
+                  sx={{
+                    width: 66,
+                    '& .MuiInputBase-input': {
+                      py: 0.25,
+                      px: 0.8,
+                      textAlign: 'right',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+=======
                   inputProps={{
                     id: "humidity-number-input",
                     min: 0,
@@ -464,24 +646,36 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
                       textAlign: 'right',
                       fontWeight: 800,
                       fontSize: '0.88rem',
+>>>>>>> zhaoshean
                       color: 'primary.main'
                     }
                   }}
                 />
+<<<<<<< HEAD
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+=======
                 <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+>>>>>>> zhaoshean
                   %
                 </Typography>
               </Box>
             </Box>
 
             <Slider
+<<<<<<< HEAD
+              size="small"
+=======
               size="medium"
+>>>>>>> zhaoshean
               value={typeof formData.humidity === 'number' ? formData.humidity : 50}
               min={0}
               max={100}
               step={1}
               onChange={handleSliderChange('humidity')}
+<<<<<<< HEAD
+=======
               aria-label="Relative humidity percentage slider"
+>>>>>>> zhaoshean
               sx={{ my: 0.8 }}
             />
 
@@ -507,7 +701,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
           <Paper
             variant="outlined"
             sx={{
+<<<<<<< HEAD
+              p: 1.75,
+=======
               p: { xs: 1.5, sm: 1.75 },
+>>>>>>> zhaoshean
               borderRadius: 2,
               display: 'flex',
               flexDirection: 'column',
@@ -522,22 +720,40 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+<<<<<<< HEAD
+              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+=======
               <Typography
                 component="label"
                 htmlFor="wind-speed-number-input"
                 variant="body2"
                 sx={{ fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
               >
+>>>>>>> zhaoshean
                 Wind Speed
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TextField
+<<<<<<< HEAD
+=======
                   id="wind-speed-number-input"
+>>>>>>> zhaoshean
                   size="small"
                   type="number"
                   name="wind_speed"
                   value={formData.wind_speed}
                   onChange={handleChange}
+<<<<<<< HEAD
+                  inputProps={{ min: 0, max: 50, step: 0.5 }}
+                  sx={{
+                    width: 66,
+                    '& .MuiInputBase-input': {
+                      py: 0.25,
+                      px: 0.8,
+                      textAlign: 'right',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+=======
                   inputProps={{
                     id: "wind-speed-number-input",
                     min: 0,
@@ -554,24 +770,36 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
                       textAlign: 'right',
                       fontWeight: 800,
                       fontSize: '0.88rem',
+>>>>>>> zhaoshean
                       color: 'primary.main'
                     }
                   }}
                 />
+<<<<<<< HEAD
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+=======
                 <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+>>>>>>> zhaoshean
                   m/s
                 </Typography>
               </Box>
             </Box>
 
             <Slider
+<<<<<<< HEAD
+              size="small"
+=======
               size="medium"
+>>>>>>> zhaoshean
               value={typeof formData.wind_speed === 'number' ? formData.wind_speed : 3}
               min={0}
               max={30}
               step={0.5}
               onChange={handleSliderChange('wind_speed')}
+<<<<<<< HEAD
+=======
               aria-label="Wind speed in meters per second slider"
+>>>>>>> zhaoshean
               sx={{ my: 0.8 }}
             />
 
@@ -597,7 +825,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
           <Paper
             variant="outlined"
             sx={{
+<<<<<<< HEAD
+              p: 1.75,
+=======
               p: { xs: 1.5, sm: 1.75 },
+>>>>>>> zhaoshean
               borderRadius: 2,
               display: 'flex',
               flexDirection: 'column',
@@ -612,22 +844,40 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+<<<<<<< HEAD
+              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+=======
               <Typography
                 component="label"
                 htmlFor="rain-number-input"
                 variant="body2"
                 sx={{ fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
               >
+>>>>>>> zhaoshean
                 Precipitation (Rain)
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TextField
+<<<<<<< HEAD
+=======
                   id="rain-number-input"
+>>>>>>> zhaoshean
                   size="small"
                   type="number"
                   name="rain"
                   value={formData.rain}
                   onChange={handleChange}
+<<<<<<< HEAD
+                  inputProps={{ min: 0, max: 100, step: 0.5 }}
+                  sx={{
+                    width: 66,
+                    '& .MuiInputBase-input': {
+                      py: 0.25,
+                      px: 0.8,
+                      textAlign: 'right',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+=======
                   inputProps={{
                     id: "rain-number-input",
                     min: 0,
@@ -644,24 +894,36 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
                       textAlign: 'right',
                       fontWeight: 800,
                       fontSize: '0.88rem',
+>>>>>>> zhaoshean
                       color: 'primary.main'
                     }
                   }}
                 />
+<<<<<<< HEAD
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+=======
                 <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem' }}>
+>>>>>>> zhaoshean
                   mm
                 </Typography>
               </Box>
             </Box>
 
             <Slider
+<<<<<<< HEAD
+              size="small"
+=======
               size="medium"
+>>>>>>> zhaoshean
               value={typeof formData.rain === 'number' ? formData.rain : 0}
               min={0}
               max={40}
               step={0.5}
               onChange={handleSliderChange('rain')}
+<<<<<<< HEAD
+=======
               aria-label="Precipitation rainfall slider in millimeters"
+>>>>>>> zhaoshean
               sx={{ my: 0.8 }}
             />
 
@@ -685,7 +947,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
         </Box>
       </Box>
 
+<<<<<<< HEAD
+      {/* SECTION 2: Wind Direction & Barometric Pressure (Balanced 2-Column Grid) */}
+=======
       {/* SECTION 2: Wind Direction & Barometric Pressure */}
+>>>>>>> zhaoshean
       <Box sx={{ mb: 2.5 }}>
         <Typography
           variant="caption"
@@ -698,7 +964,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             mb: 1.2
           }}
         >
+<<<<<<< HEAD
+          2. Wind Vector & Barometric Pressure
+=======
           2. Wind Direction & Air Pressure
+>>>>>>> zhaoshean
         </Typography>
 
         <Box
@@ -716,6 +986,21 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             name="wind_dir"
             value={formData.wind_dir}
             onChange={handleChange}
+<<<<<<< HEAD
+            helperText="Prevailing wind bearing (East = oceanic cleansing breeze, West/NW = inland heat & smoke)"
+          >
+            <MenuItem value={0}>North (0° / 360° - Stable)</MenuItem>
+            <MenuItem value={45}>North-East (45° - Coastal)</MenuItem>
+            <MenuItem value={90}>East (90° - Maritime sea breeze / Cleansing)</MenuItem>
+            <MenuItem value={135}>South-East (135° - Moderate)</MenuItem>
+            <MenuItem value={180}>South (180° - Southerly buster / Cool)</MenuItem>
+            <MenuItem value={225}>South-West (225° - Continental)</MenuItem>
+            <MenuItem value={270}>West (270° - Continental warm)</MenuItem>
+            <MenuItem value={315}>North-West (315° - Hot inland / Stagnant)</MenuItem>
+          </TextField>
+
+          <TextField
+=======
             helperText="Wind direction: East = clean ocean breeze, West/NW = inland warm air & smoke"
           >
             <MenuItem value={0}>North (0° - Calm air)</MenuItem>
@@ -730,6 +1015,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
 
           <TextField
             id="pressure-number-input"
+>>>>>>> zhaoshean
             size="small"
             fullWidth
             label="Atmospheric Pressure (hPa)"
@@ -737,6 +1023,10 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             type="number"
             value={formData.pressure}
             onChange={handleChange}
+<<<<<<< HEAD
+            error={!!errors.pressure}
+            helperText={errors.pressure || 'Standard sea-level: 1013.25 hPa (High >1020 hPa traps particles in stagnation)'}
+=======
             inputProps={{
               id: "pressure-number-input",
               min: 900,
@@ -747,11 +1037,16 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             }}
             error={!!errors.pressure}
             helperText={errors.pressure || 'Normal air pressure: 1013 hPa (High pressure traps dust and smoke near the ground)'}
+>>>>>>> zhaoshean
           />
         </Box>
       </Box>
 
+<<<<<<< HEAD
+      {/* SECTION 3: Temporal & School Context (Symmetrical 3-Column Grid) */}
+=======
       {/* SECTION 3: Time of Day & School Schedule */}
+>>>>>>> zhaoshean
       <Box sx={{ mb: 3 }}>
         <Typography
           variant="caption"
@@ -764,7 +1059,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             mb: 1.2
           }}
         >
+<<<<<<< HEAD
+          3. Temporal & School Operations Schedule
+=======
           3. Time of Day & School Schedule
+>>>>>>> zhaoshean
         </Typography>
 
         <Box
@@ -799,7 +1098,11 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
             name="day_of_week"
             value={formData.day_of_week}
             onChange={handleChange}
+<<<<<<< HEAD
+            helperText="Accounts for weekday vs weekend vehicle traffic"
+=======
             helperText="Accounts for commuter traffic volume cycle"
+>>>>>>> zhaoshean
           >
             <MenuItem value={0}>Monday (Weekday traffic)</MenuItem>
             <MenuItem value={1}>Tuesday</MenuItem>
@@ -826,6 +1129,15 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
         </Box>
       </Box>
 
+<<<<<<< HEAD
+      {/* ACTION BUTTONS: Balanced Full-Width Footer Bar */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+=======
       {/* ACTION BUTTONS: Synchronized Reset & Recalculate Footer Bar */}
       <Box
         sx={{
@@ -833,26 +1145,39 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
           alignItems: { xs: 'stretch', sm: 'center' },
           justifyContent: 'space-between',
           flexDirection: { xs: 'column-reverse', sm: 'row' },
+>>>>>>> zhaoshean
           gap: 2,
           pt: 2.5,
           borderTop: 1,
           borderColor: 'divider'
         }}
       >
+<<<<<<< HEAD
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+=======
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'center', sm: 'flex-start' } }}>
+>>>>>>> zhaoshean
           <Button
             variant="outlined"
             color="inherit"
             size="medium"
             startIcon={<ResetIcon />}
             onClick={() => applyPreset('calm')}
+<<<<<<< HEAD
+            sx={{ borderRadius: 2, fontWeight: 600, px: 2.5 }}
+=======
             disabled={loading}
             sx={{ borderRadius: 2, fontWeight: 600, px: 2.5, width: { xs: '100%', sm: 'auto' }, minHeight: 42 }}
+>>>>>>> zhaoshean
           >
             Reset to Baseline
           </Button>
           <Typography variant="caption" sx={{ color: 'text.secondary', display: { xs: 'none', md: 'inline' }, fontWeight: 500 }}>
+<<<<<<< HEAD
+            Default: Calm Sunny Morning · Luddenham Station (Sydney)
+=======
             Default: Calm Sunny Morning · Auto-Recalculating
+>>>>>>> zhaoshean
           </Typography>
         </Box>
 
@@ -861,17 +1186,27 @@ export default function PredictForm({ onPredict, onBackendStatusChange, onLoadin
           variant="contained"
           color="primary"
           size="large"
+<<<<<<< HEAD
+=======
           className="primary-action"
+>>>>>>> zhaoshean
           disabled={loading}
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PredictIcon />}
           sx={{
             px: 4,
+<<<<<<< HEAD
+            py: 1.2,
+            fontWeight: 800,
+            borderRadius: 2,
+            boxShadow: '0 4px 14px rgba(25, 118, 210, 0.35)'
+=======
             py: { xs: 1.4, sm: 1.2 },
             fontWeight: 800,
             borderRadius: 2,
             boxShadow: '0 4px 14px rgba(25, 118, 210, 0.35)',
             width: { xs: '100%', sm: 'auto' },
             minHeight: 46
+>>>>>>> zhaoshean
           }}
         >
           {loading ? 'Evaluating Atmospheric Telemetry...' : 'Calculate Recess Safety Level'}

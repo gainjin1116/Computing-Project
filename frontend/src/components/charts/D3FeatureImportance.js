@@ -1,3 +1,30 @@
+<<<<<<< HEAD
+import React, { useEffect, useRef, useState } from 'react';
+import * as d3 from 'd3';
+
+const FEATURE_DESCRIPTIONS = {
+  LUDD_RH: 'Relative Humidity (29.8%): High moisture traps particulate matter in the lower atmosphere.',
+  LUDD_T: 'Temperature (20.5%): Thermal inversions restrict vertical dispersion, causing particulate spikes.',
+  LUDD_p: 'Barometric Pressure (16.2%): High pressure systems create stable air masses where pollutants accumulate.',
+  LUDD_wd: 'Wind Direction (9.2%): Determines transport corridors from industrial or bushfire hazard zones.',
+  Hour: 'Hour of Day (8.6%): Captures diurnal commuter traffic pulses and photochemical reactions.',
+  DayOfWeek: 'Day of Week (8.4%): Differentiates high-traffic school/workdays from weekend patterns.',
+  LUDD_ws: 'Wind Speed (6.8%): High wind speeds disperse pollutants; calm air causes stagnation.',
+  Is_Holiday: 'Public Holiday (0.5%): Accounts for decreased school bus and local traffic emissions.',
+  LUDD_Rain: 'Rainfall (0.1%): Scavenges and cleans particulate matter from ambient air.'
+};
+
+const FRIENDLY_NAMES = {
+  LUDD_RH: 'Relative Humidity',
+  LUDD_T: 'Temperature',
+  LUDD_p: 'Barometric Pressure',
+  LUDD_wd: 'Wind Direction',
+  Hour: 'Time of Day (Hour)',
+  DayOfWeek: 'Day of Week',
+  LUDD_ws: 'Wind Speed',
+  Is_Holiday: 'Public Holiday',
+  LUDD_Rain: 'Precipitation (Rain)'
+=======
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 
@@ -36,6 +63,7 @@ const DEFAULT_DATA = {
   LUDD_ws: 0.0677,
   Is_Holiday: 0.0048,
   LUDD_Rain: 0.0005
+>>>>>>> zhaoshean
 };
 
 export default function D3FeatureImportance({ data, darkMode = false }) {
@@ -43,12 +71,34 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
   const [sortBy, setSortBy] = useState('importance'); // 'importance' or 'name'
   const [hoveredFeature, setHoveredFeature] = useState(null);
 
+<<<<<<< HEAD
+  // Default fallback data if API is not yet loaded
+  const defaultData = {
+    LUDD_RH: 0.2976,
+    LUDD_T: 0.2051,
+    LUDD_p: 0.1621,
+    LUDD_wd: 0.0917,
+    Hour: 0.0862,
+    DayOfWeek: 0.0843,
+    LUDD_ws: 0.0677,
+    Is_Holiday: 0.0048,
+    LUDD_Rain: 0.0005
+  };
+
+  const currentData = data && Object.keys(data).length > 0 ? data : defaultData;
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+
+    let items = Object.keys(currentData).map((key) => ({
+=======
   const currentData = useMemo(() => {
     return data && Object.keys(data).length > 0 ? data : DEFAULT_DATA;
   }, [data]);
 
   const items = useMemo(() => {
     const list = Object.keys(currentData).map((key) => ({
+>>>>>>> zhaoshean
       feature: key,
       name: FRIENDLY_NAMES[key] || key,
       value: currentData[key],
@@ -56,6 +106,14 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
     }));
 
     if (sortBy === 'importance') {
+<<<<<<< HEAD
+      items.sort((a, b) => b.value - a.value);
+    } else {
+      items.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const margin = { top: 15, right: 60, bottom: 35, left: 160 };
+=======
       list.sort((a, b) => b.value - a.value);
     } else {
       list.sort((a, b) => a.name.localeCompare(b.name));
@@ -67,6 +125,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
     if (!svgRef.current) return;
 
     const margin = { top: 15, right: 55, bottom: 35, left: 130 };
+>>>>>>> zhaoshean
     const width = 560;
     const height = 320;
 
@@ -75,7 +134,10 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
 
     const g = svg
       .attr('viewBox', `0 0 ${width} ${height}`)
+<<<<<<< HEAD
+=======
       .attr('preserveAspectRatio', 'xMidYMid meet')
+>>>>>>> zhaoshean
       .append('g')
       .attr('transform', `translate(${margin.left}, ${margin.top})`);
 
@@ -104,7 +166,11 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
       .attr('stroke-opacity', 0.1)
       .attr('color', darkMode ? '#94a3b8' : '#cbd5e1');
 
+<<<<<<< HEAD
+    // Bars with gradients
+=======
     // Gradient definition
+>>>>>>> zhaoshean
     const defs = svg.append('defs');
     const grad = defs.append('linearGradient')
       .attr('id', 'barGrad')
@@ -114,7 +180,11 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
     grad.append('stop').attr('offset', '100%').attr('stop-color', '#2563eb');
 
     const bars = g.selectAll('rect')
+<<<<<<< HEAD
+      .data(items)
+=======
       .data(items, d => d.feature)
+>>>>>>> zhaoshean
       .enter()
       .append('rect')
       .attr('y', d => y(d.feature))
@@ -123,6 +193,14 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
       .attr('width', 0)
       .attr('rx', 4)
       .attr('fill', 'url(#barGrad)')
+<<<<<<< HEAD
+      .style('cursor', 'pointer');
+
+    // Bar animation
+    bars.transition()
+      .duration(800)
+      .delay((_, i) => i * 40)
+=======
       .style('cursor', 'pointer')
       .style('transition', 'opacity 0.15s ease');
 
@@ -130,11 +208,16 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
     bars.transition()
       .duration(700)
       .delay((_, i) => i * 30)
+>>>>>>> zhaoshean
       .attr('width', d => x(d.value));
 
     // Value percentage labels
     g.selectAll('.val-label')
+<<<<<<< HEAD
+      .data(items)
+=======
       .data(items, d => d.feature)
+>>>>>>> zhaoshean
       .enter()
       .append('text')
       .attr('class', 'val-label')
@@ -145,13 +228,21 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
       .attr('font-weight', '700')
       .text(d => `${(d.value * 100).toFixed(1)}%`);
 
+<<<<<<< HEAD
+    // Y Axis labels (friendly names)
+=======
     // Y Axis labels
+>>>>>>> zhaoshean
     const yAxis = g.append('g')
       .call(d3.axisLeft(y).tickFormat(f => FRIENDLY_NAMES[f] || f));
 
     yAxis.selectAll('text')
       .attr('fill', darkMode ? '#cbd5e1' : '#334155')
+<<<<<<< HEAD
+      .attr('font-size', '12px')
+=======
       .attr('font-size', '11px')
+>>>>>>> zhaoshean
       .attr('font-weight', '600');
 
     yAxis.select('.domain').attr('color', darkMode ? '#475569' : '#cbd5e1');
@@ -167,6 +258,28 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
 
     xAxis.select('.domain').attr('color', darkMode ? '#475569' : '#cbd5e1');
 
+<<<<<<< HEAD
+    // Hover interactions
+    bars
+      .on('mouseenter', function (_, d) {
+        d3.select(this)
+          .transition()
+          .duration(150)
+          .attr('fill', '#1d4ed8')
+          .attr('opacity', 0.95);
+        setHoveredFeature(d);
+      })
+      .on('mouseleave', function () {
+        d3.select(this)
+          .transition()
+          .duration(150)
+          .attr('fill', 'url(#barGrad)')
+          .attr('opacity', 1);
+        setHoveredFeature(null);
+      });
+
+  }, [currentData, sortBy, darkMode]);
+=======
     // Hover handlers
     const handleSelect = function (_, d) {
       bars.attr('opacity', 0.65).attr('fill', 'url(#barGrad)');
@@ -189,10 +302,29 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
       .on('mouseleave', handleDeselect);
 
   }, [items, darkMode]);
+>>>>>>> zhaoshean
 
   return (
     <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+<<<<<<< HEAD
+        <div style={{ fontSize: '13px', color: darkMode ? '#94a3b8' : '#64748b' }}>
+          Gini feature importance derived from 100-estimator Random Forest
+        </div>
+        <div>
+          <button
+            onClick={() => setSortBy('importance')}
+            style={{
+              padding: '4px 10px',
+              fontSize: '12px',
+              fontWeight: 600,
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: sortBy === 'importance' ? '#2563eb' : 'transparent',
+              color: sortBy === 'importance' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
+              cursor: 'pointer',
+              marginRight: '6px'
+=======
         <div style={{ fontSize: '12px', color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
           Ranked by Impact on Air Quality
         </div>
@@ -209,6 +341,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
               color: sortBy === 'importance' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
               cursor: 'pointer',
               minHeight: '30px'
+>>>>>>> zhaoshean
             }}
           >
             Sort by Impact
@@ -216,6 +349,19 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
           <button
             onClick={() => setSortBy('name')}
             style={{
+<<<<<<< HEAD
+              padding: '4px 10px',
+              fontSize: '12px',
+              fontWeight: 600,
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: sortBy === 'name' ? '#2563eb' : 'transparent',
+              color: sortBy === 'name' ? '#fff' : darkMode ? '#e2e8f0' : '#334155',
+              cursor: 'pointer'
+            }}
+          >
+            Alphabetical
+=======
               padding: '5px 10px',
               fontSize: '11px',
               fontWeight: 600,
@@ -228,10 +374,34 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
             }}
           >
             A–Z
+>>>>>>> zhaoshean
           </button>
         </div>
       </div>
 
+<<<<<<< HEAD
+      <svg ref={svgRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
+
+      {hoveredFeature ? (
+        <div
+          style={{
+            marginTop: '8px',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            backgroundColor: darkMode ? '#1e293b' : '#eff6ff',
+            border: '1px solid #93c5fd',
+            fontSize: '13px',
+            color: darkMode ? '#bfdbfe' : '#1e3a8a'
+          }}
+        >
+          <strong>{hoveredFeature.name}:</strong> {hoveredFeature.desc}
+        </div>
+      ) : (
+        <div style={{ marginTop: '8px', fontSize: '12px', color: darkMode ? '#64748b' : '#94a3b8', fontStyle: 'italic' }}>
+          Tip: Hover over any bar to see its atmospheric physics rationale.
+        </div>
+      )}
+=======
       <div style={{ width: '100%', overflowX: 'hidden' }}>
         <svg ref={svgRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
       </div>
@@ -257,6 +427,7 @@ export default function D3FeatureImportance({ data, darkMode = false }) {
           </div>
         )}
       </div>
+>>>>>>> zhaoshean
     </div>
   );
 }
