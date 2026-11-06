@@ -5,14 +5,30 @@
   box-sizing: border-box;
 }
 
+<<<<<<< HEAD
 body {
+=======
+html, body {
+>>>>>>> zhaoshean
   margin: 0;
   padding: 0;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+<<<<<<< HEAD
 }
 
+=======
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* iOS Safe Area Insets for Edge-to-Edge Mobile Screens */
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+>>>>>>> zhaoshean
 /* Glassmorphism & Modern Card Styling */
 .glass-panel {
   backdrop-filter: blur(12px);
@@ -22,6 +38,7 @@ body {
 }
 
 .hover-card {
+<<<<<<< HEAD
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
@@ -52,6 +69,124 @@ body {
   overflow: hidden;
 }
 
+=======
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hover-card:hover {
+    transform: translateY(-3px);
+  }
+}
+
+/* ==========================================================================
+   2. ANIMATED LIVE STATUS INDICATORS
+   ========================================================================== */
+
+@keyframes pulseGlow {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.live-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  display: inline-block;
+  animation: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  flex-shrink: 0;
+}
+
+.fallback-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-pulse-dot {
+    animation: none;
+    box-shadow: 0 0 4px rgba(34, 197, 94, 0.6);
+  }
+}
+
+/* ==========================================================================
+   4. PREMIUM BUTTON GLOW AND MICRO-INTERACTIONS
+   ========================================================================== */
+
+.primary-action {
+  box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.emergency-action {
+  box-shadow: 0 4px 14px rgba(211, 47, 47, 0.35) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primary-action:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(25, 118, 210, 0.45) !important;
+  }
+  .emergency-action:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(211, 47, 47, 0.45) !important;
+  }
+}
+
+.primary-action:active:not(:disabled),
+.emergency-action:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary-action,
+  .emergency-action {
+    transition: none !important;
+    transform: none !important;
+  }
+  .primary-action:hover,
+  .emergency-action:hover {
+    transform: none !important;
+  }
+}
+
+/* Chart Container & Touch Enhancements */
+.chart-card {
+  position: relative;
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch Device Friendly Sizing */
+@media (max-width: 600px) {
+  /* Prevent iOS automatic input zooming */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  
+  /* Smooth touch scrolling */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+>>>>>>> zhaoshean
 /* Smooth Fade In */
 @keyframes fadeIn {
   from {
@@ -61,6 +196,7 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+<<<<<<< HEAD
   }
 }
 
@@ -95,5 +231,72 @@ body {
 
   .chart-card svg {
     max-width: 100%;
+=======
+>>>>>>> zhaoshean
   }
+}
+
+.fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+/* Print Styles for Export Briefing */
+@media print {
+  header, footer, nav, button, .no-print, .MuiBottomNavigation-root {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}
+
+/* ==========================================================================
+   Recess Summary Ribbon Alignment
+   ========================================================================== */
+
+.recess-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+  .recess-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .recess-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.recess-summary-col {
+  display: flex;
+  flex-direction: column;
+  justifyContent: flex-start;
+}
+
+.recess-summary-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-height: 28px;
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.35;
+}
+
+.recess-summary-value {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
 }

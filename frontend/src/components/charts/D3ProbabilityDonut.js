@@ -1,9 +1,21 @@
+<<<<<<< HEAD
 import React, { useEffect, useRef, useState } from 'react';
+=======
+import React, { useEffect, useRef } from 'react';
+>>>>>>> zhaoshean
 import * as d3 from 'd3';
 
 export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03], darkMode = false }) {
   const svgRef = useRef(null);
+<<<<<<< HEAD
   const [activeSlice, setActiveSlice] = useState(null);
+=======
+
+  // Normalize probabilities array to ensure stable data
+  const safeProb = probabilities && probabilities.length === 3
+    ? probabilities
+    : [0.85, 0.12, 0.03];
+>>>>>>> zhaoshean
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -14,9 +26,15 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
     const innerRadius = radius * 0.62;
 
     const data = [
+<<<<<<< HEAD
       { label: 'Safe', value: probabilities[0] || 0, color: '#2e7d32' },
       { label: 'Caution', value: probabilities[1] || 0, color: '#ed6c02' },
       { label: 'Unsafe', value: probabilities[2] || 0, color: '#d32f2f' }
+=======
+      { label: 'Safe', value: safeProb[0] || 0, color: '#2e7d32' },
+      { label: 'Caution', value: safeProb[1] || 0, color: '#ed6c02' },
+      { label: 'Unsafe', value: safeProb[2] || 0, color: '#d32f2f' }
+>>>>>>> zhaoshean
     ];
 
     const maxEntry = data.reduce((prev, curr) => (curr.value > prev.value ? curr : prev), data[0]);
@@ -26,6 +44,10 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
 
     const g = svg
       .attr('viewBox', `0 0 ${width} ${height}`)
+<<<<<<< HEAD
+=======
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+>>>>>>> zhaoshean
       .append('g')
       .attr('transform', `translate(${width / 2}, ${height / 2})`);
 
@@ -45,6 +67,26 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
       .cornerRadius(4)
       .padAngle(0.03);
 
+<<<<<<< HEAD
+=======
+    // Center display texts
+    const centerPct = g.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '-0.15em')
+      .attr('fill', darkMode ? '#f8fafc' : '#0f172a')
+      .attr('font-size', '24px')
+      .attr('font-weight', '800')
+      .text(`${(maxEntry.value * 100).toFixed(1)}%`);
+
+    const centerLabel = g.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '1.4em')
+      .attr('fill', maxEntry.color)
+      .attr('font-size', '13px')
+      .attr('font-weight', '700')
+      .text(maxEntry.label);
+
+>>>>>>> zhaoshean
     const paths = g.selectAll('path')
       .data(pie(data))
       .enter()
@@ -53,6 +95,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
       .attr('stroke', darkMode ? '#1e293b' : '#ffffff')
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
+<<<<<<< HEAD
       .style('transition', 'transform 0.25s ease')
       .each(function (d) {
         this._current = d;
@@ -61,6 +104,13 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
     // Enter animation
     paths.transition()
       .duration(750)
+=======
+      .attr('d', arc);
+
+    // Initial smooth enter animation
+    paths.transition()
+      .duration(650)
+>>>>>>> zhaoshean
       .attrTween('d', function (d) {
         const i = d3.interpolate({ startAngle: 0, endAngle: 0 }, d);
         return function (t) {
@@ -68,6 +118,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
         };
       });
 
+<<<<<<< HEAD
     // Hover events
     paths
       .on('mouseenter', function (event, d) {
@@ -119,6 +170,55 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: item.color }} />
             <span style={{ fontWeight: 600 }}>{item.label}:</span>
             <span style={{ opacity: 0.85 }}>{((item.val || 0) * 100).toFixed(1)}%</span>
+=======
+    // Zero-re-render hover interactions directly updating D3 SVG elements
+    const handleSelect = function (event, d) {
+      paths.attr('d', arc);
+      d3.select(this)
+        .raise()
+        .attr('d', hoverArc);
+
+      centerPct.text(`${(d.data.value * 100).toFixed(1)}%`);
+      centerLabel.text(d.data.label).attr('fill', d.data.color);
+    };
+
+    const handleDeselect = function () {
+      paths.attr('d', arc);
+      centerPct.text(`${(maxEntry.value * 100).toFixed(1)}%`);
+      centerLabel.text(maxEntry.label).attr('fill', maxEntry.color);
+    };
+
+    paths
+      .on('mouseenter', handleSelect)
+      .on('touchstart', handleSelect)
+      .on('click', handleSelect)
+      .on('mouseleave', handleDeselect);
+
+  }, [safeProb[0], safeProb[1], safeProb[2], darkMode]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '280px', margin: '0 auto' }}>
+      <svg ref={svgRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
+      <div style={{ display: 'flex', gap: '12px', marginTop: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        {[
+          { label: 'Safe', color: '#2e7d32', val: safeProb[0] },
+          { label: 'Caution', color: '#ed6c02', val: safeProb[1] },
+          { label: 'Unsafe', color: '#d32f2f', val: safeProb[2] }
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              padding: '4px 6px'
+            }}
+          >
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: item.color, flexShrink: 0 }} />
+            <span style={{ fontWeight: 600, color: darkMode ? '#f8fafc' : '#1e293b' }}>{item.label}:</span>
+            <span style={{ opacity: 0.85, color: darkMode ? '#cbd5e1' : '#475569' }}>{((item.val || 0) * 100).toFixed(1)}%</span>
+>>>>>>> zhaoshean
           </div>
         ))}
       </div>
