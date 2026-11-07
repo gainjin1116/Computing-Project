@@ -9,10 +9,10 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
   useEffect(() => {
     if (!svgRef.current) return;
 
-    const width = 280;
-    const height = 240;
-    const radius = Math.min(width, height) / 2 - 16;
-    const innerRadius = radius * 0.62;
+    const width = 220;
+    const height = 220;
+    const radius = Math.min(width, height) / 2 - 8; // Shrunk padding
+    const innerRadius = radius * 0.6;
 
     const data = [
       { label: 'Safe', value: probabilities[0] || 0, color: '#164043' },
@@ -43,7 +43,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
 
     const hoverArc = d3.arc()
       .innerRadius(innerRadius - 2)
-      .outerRadius(radius + 7)
+      .outerRadius(radius + 5)
       .cornerRadius(4)
       .padAngle(0.03);
 
@@ -73,7 +73,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
       .attr('text-anchor', 'middle')
       .attr('dy', '-0.15em')
       .attr('fill', '#164043')
-      .attr('font-size', '24px')
+      .attr('font-size', '22px')
       .attr('font-weight', '800')
       .text(`${(maxEntry.value * 100).toFixed(1)}%`);
 
@@ -81,14 +81,13 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
       .attr('text-anchor', 'middle')
       .attr('dy', '1.4em')
       .attr('fill', maxEntry.color)
-      .attr('font-size', '13px')
+      .attr('font-size', '12px')
       .attr('font-weight', '700')
       .text(maxEntry.label);
 
     paths
       .on('mouseenter', function (event, d) {
         d3.select(this).transition().duration(200).attr('d', hoverArc);
-
         centerValueText.text(`${(d.data.value * 100).toFixed(1)}%`).attr('fill', '#164043');
         centerLabelText.text(d.data.label).attr('fill', d.data.color);
         setActiveSlice(d.data.label);
@@ -113,7 +112,6 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
       })
       .on('mouseleave', function () {
         d3.select(this).transition().duration(200).attr('d', arc);
-
         centerValueText.text(`${(maxEntry.value * 100).toFixed(1)}%`).attr('fill', '#164043');
         centerLabelText.text(maxEntry.label).attr('fill', maxEntry.color);
         setActiveSlice(null);
@@ -124,39 +122,51 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
 
   return (
     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', backgroundColor: 'transparent' }}>
-      <svg ref={svgRef} style={{ width: '100%', maxWidth: '280px', height: 'auto', backgroundColor: 'transparent' }} />
+      <svg ref={svgRef} style={{ width: '100%', maxWidth: '220px', height: 'auto', backgroundColor: 'transparent' }} />
 
       {tooltip.show && (
         <div style={{
           position: 'absolute',
-          left: tooltip.x + 20,
-          top: tooltip.y - 20,
+          left: tooltip.x + 15,
+          top: tooltip.y - 15,
           backgroundColor: '#164043',
           color: '#f8fafc',
-          padding: '10px 14px',
+          padding: '8px 12px',
           borderRadius: '10px',
           boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
           pointerEvents: 'none',
           zIndex: 1000,
-          width: '160px',
+          width: '140px',
           transition: 'opacity 0.2s ease, transform 0.2s ease',
           transform: 'translateY(-50%)',
           borderLeft: `4px solid ${tooltip.color}`
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: tooltip.color }} />
-            <span style={{ fontWeight: 800, fontSize: '13px' }}>{tooltip.zone} Chance</span>
+            <span style={{ fontWeight: 800, fontSize: '12px' }}>{tooltip.zone} Chance</span>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '900', marginBottom: '4px' }}>
-            {(tooltip.val * 100).toFixed(1)} <span style={{ fontSize: '11px', fontWeight: 600, opacity: 0.8 }}>%</span>
+          <div style={{ fontSize: '16px', fontWeight: '900', marginBottom: '4px' }}>
+            {(tooltip.val * 100).toFixed(1)} <span style={{ fontSize: '10px', fontWeight: 600, opacity: 0.8 }}>%</span>
           </div>
-          <div style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: 1.4 }}>
+          <div style={{ fontSize: '10px', color: '#cbd5e1', lineHeight: 1.4 }}>
             {tooltip.tip}
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '14px', marginTop: '4px', flexWrap: 'wrap', justifyContent: 'center', backgroundColor: 'transparent' }}>
+      {/* Legend */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
+        flexWrap: 'nowrap',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '12px',
+        marginTop: '2px', // Reduced from 6px to save vertical space
+        backgroundColor: 'transparent',
+        fontSize: '11px',
+        width: '100%'
+      }}>
         {[
           { label: 'Safe', color: '#164043', val: probabilities[0] },
           { label: 'Caution', color: '#E65100', val: probabilities[1] },
@@ -165,12 +175,12 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
           <div key={item.label} style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            fontSize: '13px',
+            gap: '4px',
             opacity: activeSlice === null || activeSlice === item.label ? 1 : 0.3,
-            transition: 'opacity 0.2s ease'
+            transition: 'opacity 0.2s ease',
+            whiteSpace: 'nowrap'
           }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: item.color }} />
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
             <span style={{ fontWeight: 600, color: '#164043' }}>{item.label}:</span>
             <span style={{ opacity: 0.85, color: '#475569' }}>{((item.val || 0) * 100).toFixed(1)}%</span>
           </div>
