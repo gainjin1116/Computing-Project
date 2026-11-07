@@ -6,9 +6,8 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
   const containerRef = useRef(null);
   const [filterMode, setFilterMode] = useState('full'); // 'full' (24h) or 'school' (8:00 - 16:00)
   const [hoveredData, setHoveredData] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState(null);
+  const [tooltipConfig, setTooltipConfig] = useState({ x: 0, y: 0, isBelow: false });
 
-  // Normalize parameters supporting both full and abbreviated keys
   const params = useMemo(() => {
     const base = activeParams || {};
     return {
@@ -28,7 +27,6 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
     activeParams?.is_holiday
   ]);
 
-  // Generate 24h diurnal data points based on atmospheric physics formula
   const rawData = useMemo(() => {
     const data = [];
     for (let k = 0; k < 24; k++) {
@@ -283,25 +281,32 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
     const line = d3.line()
       .x(d => xScale(d.hour)).y(d => yScale(d.pm25)).curve(d3.curveMonotoneX);
 
+    // --- FIXED SEGMENT LOGIC ---
+    // Ensures that the first few points always draw a line, even if colors don't change.
     const segments = [];
-    let currentSegment = [];
-    let currentColor = null;
+    let currentSegment = [dataset[0]];
+    let currentColor = dataset[0].pm25 <= 25 ? '#16a34a' : dataset[0].pm25 <= 50 ? '#f59e0b' : '#dc2626';
 
-    dataset.forEach((d, i) => {
-      let color = d.pm25 <= 25 ? '#16a34a' : d.pm25 <= 50 ? '#f59e0b' : '#dc2626';
-      if (currentColor === null) { currentColor = color; }
-      else if (color !== currentColor) {
-        if (currentSegment.length > 0) {
-          currentSegment.push(d);
-          segments.push({ color: currentColor, data: [...currentSegment] });
-        }
+    for (let i = 1; i < dataset.length; i++) {
+      const d = dataset[i];
+      const color = d.pm25 <= 25 ? '#16a34a' : d.pm25 <= 50 ? '#f59e0b' : '#dc2626';
+
+      if (color === currentColor) {
+        currentSegment.push(d);
+      } else {
+        // Push the point that caused the color change to bridge the gap smoothly
+        currentSegment.push(d);
+        segments.push({ color: currentColor, data: [...currentSegment] });
+
+        // Start the new segment from the previous point to avoid gaps
         currentSegment = [dataset[i - 1], d];
         currentColor = color;
-      } else { currentSegment.push(d); }
-      if (i === dataset.length - 1 && currentSegment.length > 0) {
-        segments.push({ color: currentColor, data: [...currentSegment] });
       }
-    });
+    }
+    // Push the final remaining segment
+    if (currentSegment.length > 0) {
+      segments.push({ color: currentColor, data: [...currentSegment] });
+    }
 
     segments.forEach(seg => {
       g.append('path')
@@ -389,6 +394,7 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
       let coords;
       if (event.touches && event.touches.length > 0) { coords = d3.pointer(event.touches[0], overlay.node()); }
       else { coords = d3.pointer(event, overlay.node()); }
+
       const mx = Math.max(0, Math.min(innerWidth, coords[0]));
       const xHour = xScale.invert(mx);
       const bisect = d3.bisector(d => d.hour).center;
@@ -402,21 +408,28 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
         crosshair.attr('x1', cx).attr('x2', cx).style('opacity', 1);
         highlightCircle.attr('cx', cx).attr('cy', cy).attr('fill', selected.statusColor).style('opacity', 1);
 
-        const containerRect = containerRef.current.getBoundingClientRect();
         const svgRect = svgRef.current.getBoundingClientRect();
         const scaleX = svgRect.width / width;
         const scaleY = svgRect.height / height;
-        const screenX = (margin.left + cx) * scaleX;
-        const screenY = (margin.top + cy) * scaleY + (svgRef.current.offsetTop || 0);
 
-        setTooltipPos({ x: Math.max(80, Math.min(containerRect.width - 80, screenX)), y: screenY });
+        const screenX = (margin.left + cx) * scaleX;
+        const screenY = (margin.top + cy) * scaleY;
+
+        const isBelow = cy < (innerHeight * 0.45);
+
+        setTooltipConfig({
+          x: Math.max(85, Math.min(svgRect.width - 85, screenX)),
+          y: screenY,
+          isBelow
+        });
+
         setHoveredData(selected);
       }
     };
 
     const clearPointer = () => {
       crosshair.style('opacity', 0); highlightCircle.style('opacity', 0);
-      setHoveredData(null); setTooltipPos(null);
+      setHoveredData(null);
     };
 
     overlay
@@ -505,16 +518,25 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
         </div>
       </div>
 
-      {hoveredData && tooltipPos && (
+      {hoveredData && (
         <div
           style={{
-            position: 'absolute', left: `${tooltipPos.x}px`, top: `${tooltipPos.y}px`,
-            transform: 'translate(-50%, -115%)', pointerEvents: 'none', zIndex: 30,
+            position: 'absolute',
+            left: `${tooltipConfig.x}px`,
+            top: `${tooltipConfig.y}px`,
+            transform: tooltipConfig.isBelow ? 'translate(-50%, 16px)' : 'translate(-50%, calc(-100% - 16px))',
+            pointerEvents: 'none',
+            zIndex: 30,
             backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)',
-            backdropFilter: 'blur(8px)', border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'}`,
-            boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.16)', borderRadius: '10px',
-            padding: '10px 14px', minWidth: '160px', fontSize: '12px', lineHeight: 1.5,
-            transition: 'left 0.06s ease-out, top 0.06s ease-out'
+            backdropFilter: 'blur(8px)',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'}`,
+            boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.16)',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            minWidth: '160px',
+            fontSize: '12px',
+            lineHeight: 1.5,
+            transition: 'left 0.06s ease-out, top 0.06s ease-out, transform 0.15s ease'
           }}
         >
           <div style={{ fontWeight: 800, fontSize: '13px', color: darkMode ? '#f8fafc' : '#0f172a', marginBottom: '4px', borderBottom: `1px solid ${darkMode ? '#334155' : '#f1f5f9'}`, paddingBottom: '4px' }}>
