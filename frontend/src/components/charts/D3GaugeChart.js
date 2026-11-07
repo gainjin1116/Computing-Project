@@ -1,18 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
-export default function D3GaugeChart({ value = 12, maxVal = 100, darkMode = false }) {
+export default function D3GaugeChart({ value = 12, maxVal = 100, status = 'Safe' }) {
   const svgRef = useRef(null);
+  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, zone: '', color: '', tip: '' });
 
   useEffect(() => {
     if (!svgRef.current) return;
 
-    const width = 360;
-    const height = 220;
+    const width = 320;
+    const height = 200;
     const cx = width / 2;
-    const cy = 175;
-    const radius = 135;
-    const innerRadius = 104;
+    const cy = 180;
+    const radius = 120;
+    const innerRadius = 90;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -21,149 +22,215 @@ export default function D3GaugeChart({ value = 12, maxVal = 100, darkMode = fals
       .attr('viewBox', `0 0 ${width} ${height}`)
       .append('g');
 
-    // Threshold segments in radians: -Math.PI/2 to Math.PI/2
-    // Safe: 0 - 25 -> 25% of 180° = 45° (-90° to -45°)
-    // Caution: 25 - 50 -> 25% of 180° = 45° (-45° to 0°)
-    // Unsafe: 50 - 100 -> 50% of 180° = 90° (0° to 90°)
-    const segments = [
-      { start: -Math.PI / 2, end: -Math.PI / 4, color: '#2e7d32', label: '0–25', title: 'Safe' },
-      { start: -Math.PI / 4, end: 0, color: '#ed6c02', label: '25–50', title: 'Caution' },
-      { start: 0, end: Math.PI / 2, color: '#d32f2f', label: '50+', title: 'Unsafe' }
-    ];
+    const clampedVal = Math.max(0, Math.min(value, maxVal));
+    const valueAngle = (clampedVal / maxVal) * Math.PI;
 
-    const arcGen = d3.arc()
+    let currentColor = '#164043';
+    if (status === 'Unsafe') {
+      currentColor = '#d32f2f';
+    } else if (status === 'Caution') {
+      currentColor = '#E65100';
+    }
+
+    // 1. Draw background track
+    const bgArc = d3.arc()
       .innerRadius(innerRadius)
       .outerRadius(radius)
-      .cornerRadius(4);
+      .startAngle(-Math.PI / 2)
+      .endAngle(Math.PI / 2);
 
-    segments.forEach((seg) => {
-      // Draw arc segment
-      g.append('path')
+    g.append('path')
+      .attr('transform', `translate(${cx}, ${cy})`)
+      .attr('d', bgArc())
+      .attr('fill', '#f1f5f9');
+
+    // 2. Draw the interactive progress arc
+    if (clampedVal > 0) {
+      const progressArcBase = d3.arc()
+        .innerRadius(innerRadius)
+        .outerRadius(radius)
+        .startAngle(-Math.PI / 2)
+        .endAngle(-Math.PI / 2 + valueAngle);
+
+      const arcGroup = g.append('g')
+        .style('cursor', 'pointer')
+        .style('transition', 'all 0.3s ease')
+        .on('mouseenter', function () {
+          d3.select(this).style('filter', 'drop-shadow(0px 4px 8px rgba(0,0,0,0.15))').style('opacity', 0.9);
+        })
+        .on('mousemove', function (event) {
+          const [x, y] = d3.pointer(event, svgRef.current);
+
+          let zoneLabel = `${status} Zone`;
+          let actionableTip = 'Normal outdoor play allowed.';
+          if (status === 'Unsafe') {
+            actionableTip = 'Hazardous air. Move indoors immediately.';
+          } else if (status === 'Caution') {
+            actionableTip = 'Air quality is elevated. Monitor asthmatics.';
+          }
+
+          setTooltip({
+            show: true,
+            x: x,
+            y: y,
+            zone: zoneLabel,
+            color: currentColor,
+            tip: actionableTip
+          });
+        })
+        .on('mouseleave', function () {
+          d3.select(this).style('filter', 'none').style('opacity', 1);
+          setTooltip(prev => ({ ...prev, show: false }));
+        });
+
+      arcGroup.append('path')
         .attr('transform', `translate(${cx}, ${cy})`)
-        .attr('d', arcGen({
-          startAngle: seg.start,
-          endAngle: seg.end
-        }))
-        .attr('fill', seg.color)
-        .attr('opacity', 0.9);
+        .attr('d', progressArcBase())
+        .attr('fill', currentColor);
 
-      // Add explicit threshold range text along each arc segment
-      const midAngle = (seg.start + seg.end) / 2;
-      const textRadius = (innerRadius + radius) / 2;
-      const xText = cx + textRadius * Math.sin(midAngle);
-      const yText = cy - textRadius * Math.cos(midAngle);
+      const endX = cx + ((innerRadius + radius) / 2) * Math.sin(-Math.PI / 2 + valueAngle);
+      const endY = cy - ((innerRadius + radius) / 2) * Math.cos(-Math.PI / 2 + valueAngle);
 
-      g.append('text')
-        .attr('x', xText)
-        .attr('y', yText + 4)
-        .attr('text-anchor', 'middle')
-        .attr('fill', '#ffffff')
-        .attr('font-size', '10px')
-        .attr('font-weight', '700')
-        .attr('letter-spacing', '0.5px')
-        .text(seg.label);
-    });
+      arcGroup.append('circle')
+        .attr('cx', endX)
+        .attr('cy', endY)
+        .attr('r', (radius - innerRadius) / 2)
+        .attr('fill', currentColor);
+    }
 
-    // Numerical tick marks along outer border
-    const ticks = [
-      { val: 0, label: '0' },
-      { val: 25, label: '25' },
-      { val: 50, label: '50' },
-      { val: 100, label: '100' }
+    // 3. Draw subtle Tick Marks
+    const thresholds = [
+      { val: 25, showLine: true },
+      { val: 50, showLine: true },
+      { val: 75, showLine: true }
     ];
 
-    ticks.forEach((tick) => {
-      const angle = -Math.PI / 2 + (Math.min(tick.val, 100) / 100) * Math.PI;
-      const xTick = cx + (radius + 14) * Math.sin(angle);
-      const yTick = cy - (radius + 14) * Math.cos(angle);
+    thresholds.forEach((tick) => {
+      const tickAngle = -Math.PI / 2 + (tick.val / maxVal) * Math.PI;
+
+      if (tick.showLine) {
+        const x1 = cx + (innerRadius - 1) * Math.sin(tickAngle);
+        const y1 = cy - (innerRadius - 1) * Math.cos(tickAngle);
+        const x2 = cx + (radius + 1) * Math.sin(tickAngle);
+        const y2 = cy - (radius + 1) * Math.cos(tickAngle);
+
+        g.append('line')
+          .attr('x1', x1)
+          .attr('y1', y1)
+          .attr('x2', x2)
+          .attr('y2', y2)
+          .attr('stroke', '#ffffff')
+          .attr('stroke-width', 2);
+      }
+
+      const textRadius = radius + 18;
+      const tx = cx + textRadius * Math.sin(tickAngle);
+      const ty = cy - textRadius * Math.cos(tickAngle);
 
       g.append('text')
-        .attr('x', xTick)
-        .attr('y', yTick + 4)
+        .attr('x', tx)
+        .attr('y', ty + 4)
         .attr('text-anchor', 'middle')
-        .attr('fill', darkMode ? '#94a3b8' : '#64748b')
+        .attr('fill', '#475569')
         .attr('font-size', '11px')
         .attr('font-weight', '700')
-        .text(tick.label);
+        .text(tick.val);
     });
 
-    // Arc Zone Category Labels outside the dial
-    const zoneLabels = [
-      { angle: -Math.PI * 0.375, text: 'Safe (0-25)', color: '#2e7d32' },
-      { angle: -Math.PI * 0.125, text: 'Caution (25-50)', color: '#ed6c02' },
-      { angle: Math.PI * 0.25, text: 'Unsafe (50+)', color: '#d32f2f' }
-    ];
-
-    zoneLabels.forEach((zone) => {
-      const xPos = cx + (radius + 28) * Math.sin(zone.angle);
-      const yPos = cy - (radius + 28) * Math.cos(zone.angle);
-
-      g.append('text')
-        .attr('x', xPos)
-        .attr('y', yPos + 3)
-        .attr('text-anchor', 'middle')
-        .attr('fill', zone.color)
-        .attr('font-size', '10px')
-        .attr('font-weight', '700')
-        .text(zone.text);
-    });
-
-    // Needle calculation
-    const clampedVal = Math.max(0, Math.min(value, 100));
-    const targetAngle = -90 + (clampedVal / 100) * 180;
-
-    const needleGroup = g.append('g')
-      .attr('transform', `translate(${cx}, ${cy})`);
-
-    const needle = needleGroup.append('line')
-      .attr('x1', 0)
-      .attr('y1', 0)
-      .attr('x2', 0)
-      .attr('y2', -radius + 22)
-      .attr('stroke', darkMode ? '#f8fafc' : '#0f172a')
-      .attr('stroke-width', 4)
-      .attr('stroke-linecap', 'round')
-      .attr('transform', 'rotate(-90)');
-
-    needle.transition()
-      .duration(900)
-      .ease(d3.easeCubicOut)
-      .attr('transform', `rotate(${targetAngle})`);
-
-    // Center pivot circle
-    needleGroup.append('circle')
-      .attr('r', 8)
-      .attr('fill', darkMode ? '#f8fafc' : '#0f172a');
-
-    needleGroup.append('circle')
-      .attr('r', 3.5)
-      .attr('fill', darkMode ? '#1e293b' : '#ffffff');
-
-    // Central text readout
+    // 4. Center Text
     g.append('text')
       .attr('x', cx)
-      .attr('y', cy + 24)
+      .attr('y', cy - 8)
       .attr('text-anchor', 'middle')
-      .attr('fill', darkMode ? '#f1f5f9' : '#0f172a')
-      .attr('font-size', '17px')
-      .attr('font-weight', '800')
-      .text(`${value.toFixed(1)} µg/m³ PM2.5`);
+      .attr('fill', '#164043')
+      .attr('font-size', '42px')
+      .attr('font-weight', '900')
+      .attr('letter-spacing', '-1px')
+      .text(`${value.toFixed(1)}`);
 
-  }, [value, maxVal, darkMode]);
+    g.append('text')
+      .attr('x', cx)
+      .attr('y', cy + 16)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#475569')
+      .attr('font-size', '13px')
+      .attr('font-weight', '700')
+      .text('µg/m³ PM2.5');
+
+    // 5. Min/Max Labels
+    g.append('text')
+      .attr('x', cx - radius - 16)
+      .attr('y', cy + 4)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#475569')
+      .attr('font-size', '11px')
+      .attr('font-weight', '700')
+      .text('0');
+
+    g.append('text')
+      .attr('x', cx + radius + 16)
+      .attr('y', cy + 4)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#475569')
+      .attr('font-size', '11px')
+      .attr('font-weight', '700')
+      .text('100');
+
+  }, [value, maxVal, status]);
 
   return (
-    <div style={{ width: '100%', maxWidth: '380px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: '380px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <svg ref={svgRef} style={{ width: '100%', height: 'auto', display: 'block' }} />
-      <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+
+      {/* Gauge Tooltip - Action Oriented */}
+      {tooltip.show && (
+        <div style={{
+          position: 'absolute',
+          left: tooltip.x + 20,
+          top: tooltip.y - 20,
+          backgroundColor: '#164043',
+          color: '#f8fafc',
+          padding: '10px 14px',
+          borderRadius: '10px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+          pointerEvents: 'none',
+          zIndex: 1000,
+          width: '160px',
+          transition: 'opacity 0.2s ease, transform 0.2s ease',
+          transform: 'translateY(-50%)',
+          borderLeft: `4px solid ${tooltip.color}`
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: tooltip.color }} />
+            <span style={{ fontWeight: 800, fontSize: '13px' }}>{tooltip.zone}</span>
+          </div>
+          <div style={{ fontSize: '18px', fontWeight: 900, marginBottom: '4px' }}>
+            {value.toFixed(1)} <span style={{ fontSize: '11px', fontWeight: 600, opacity: 0.8 }}>µg/m³</span>
+          </div>
+          <div style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: 1.4 }}>
+            {tooltip.tip}
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Legend */}
+      <div style={{ display: 'flex', gap: '16px', marginTop: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
         {[
-          { label: 'Safe', color: '#2e7d32', range: '0–25 µg/m³' },
-          { label: 'Caution', color: '#ed6c02', range: '25–50 µg/m³' },
-          { label: 'Unsafe', color: '#d32f2f', range: '50+ µg/m³' }
+          { label: 'Safe', color: '#164043', range: '0–25', active: status === 'Safe' },
+          { label: 'Caution', color: '#E65100', range: '25–50', active: status === 'Caution' },
+          { label: 'Unsafe', color: '#d32f2f', range: '50+', active: status === 'Unsafe' }
         ].map((item) => (
-          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+          <div key={item.label} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '11px',
+            opacity: item.active ? 1 : 0.3,
+            transition: 'opacity 0.3s ease'
+          }}>
             <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: item.color }} />
-            <span style={{ fontWeight: 700 }}>{item.label}:</span>
-            <span style={{ opacity: 0.85 }}>{item.range}</span>
+            <span style={{ fontWeight: 700, color: '#1e293b' }}>{item.label}:</span>
+            <span style={{ color: '#64748b' }}>{item.range}</span>
           </div>
         ))}
       </div>

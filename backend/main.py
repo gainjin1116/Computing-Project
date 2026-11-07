@@ -121,6 +121,11 @@ def calculate_scientific_pm25(data: WeatherInput) -> float:
     traffic_effect = traffic * 6.0 * rush
 
     estimate = base + temp_effect + humidity_effect + wind_effect + rain_effect + traffic_effect
+    
+    # NEW: Extreme dry heat bushfire smoke adjustment
+    if data.temp > 30.0 and data.humidity < 40.0:
+        estimate += 25.0  # Add significant baseline for bushfire conditions
+        
     return round(float(max(estimate, 1.0)), 1)
 
 
@@ -215,13 +220,34 @@ def predict_safety(data: WeatherInput):
 
         estimated_pm25 = calculate_scientific_pm25(data)
 
-        # Deterministic safety override: extreme heat + stagnant air
-        override = (
+        # Deterministic safety overrides
+        override = False
+        
+        # 1. Heatwave stagnation rule
+        heat_override = (
+            data.temp > 35.0 and data.humidity > 75.0 and data.wind_speed < 1.5
+        )
+        heat_caution = (
             data.temp > 30.0 and data.humidity > 70.0 and data.wind_speed < 3.0
         )
-        if override and prediction == 0:
+        
+        # 2. Bushfire smoke rule (High temp, extremely low humidity, low wind)
+        bushfire_override = (
+            data.temp > 30.0 and data.humidity < 40.0 and data.wind_speed < 4.0
+        )
+        
+        if bushfire_override and prediction < 2:
+            prediction = 2
+            probabilities = [0.05, 0.15, 0.80]
+            override = True
+        elif heat_override and prediction == 0:
+            prediction = 2
+            probabilities = [0.04, 0.14, 0.82]
+            override = True
+        elif heat_caution and prediction == 0:
             prediction = 1
             probabilities = [min(probabilities[0], 0.4), 1.0 - min(probabilities[0], 0.4) - probabilities[2], probabilities[2]]
+            override = True
 
         return {
             "prediction": prediction,

@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
-export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03], darkMode = false }) {
+export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] }) {
   const svgRef = useRef(null);
   const [activeSlice, setActiveSlice] = useState(null);
+  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, zone: '', color: '', val: 0 });
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -14,8 +15,8 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
     const innerRadius = radius * 0.62;
 
     const data = [
-      { label: 'Safe', value: probabilities[0] || 0, color: '#2e7d32' },
-      { label: 'Caution', value: probabilities[1] || 0, color: '#ed6c02' },
+      { label: 'Safe', value: probabilities[0] || 0, color: '#164043' },
+      { label: 'Caution', value: probabilities[1] || 0, color: '#E65100' },
       { label: 'Unsafe', value: probabilities[2] || 0, color: '#d32f2f' }
     ];
 
@@ -50,7 +51,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
       .enter()
       .append('path')
       .attr('fill', (d) => d.data.color)
-      .attr('stroke', darkMode ? '#1e293b' : '#ffffff')
+      .attr('stroke', '#ffffff')
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .style('transition', 'transform 0.25s ease')
@@ -58,7 +59,6 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
         this._current = d;
       });
 
-    // Enter animation
     paths.transition()
       .duration(750)
       .attrTween('d', function (d) {
@@ -68,57 +68,119 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03],
         };
       });
 
-    // Hover events
+    const centerValueText = g.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '-0.15em')
+      .attr('fill', '#164043')
+      .attr('font-size', '24px')
+      .attr('font-weight', '800')
+      .text(`${(maxEntry.value * 100).toFixed(1)}%`);
+
+    const centerLabelText = g.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '1.4em')
+      .attr('fill', maxEntry.color)
+      .attr('font-size', '13px')
+      .attr('font-weight', '700')
+      .text(maxEntry.label);
+
+    // Donut Hover & Tooltip Logic
     paths
       .on('mouseenter', function (event, d) {
         d3.select(this)
           .transition()
           .duration(200)
           .attr('d', hoverArc);
-        setActiveSlice(d.data);
+
+        centerValueText.text(`${(d.data.value * 100).toFixed(1)}%`).attr('fill', '#164043');
+        centerLabelText.text(d.data.label).attr('fill', d.data.color);
+        setActiveSlice(d.data.label);
+      })
+      .on('mousemove', function (event, d) {
+        const [x, y] = d3.pointer(event, svgRef.current);
+
+        // Data-focused tip
+        let desc = '';
+        if (d.data.label === 'Safe') desc = 'Highest probability. Normal play.';
+        if (d.data.label === 'Caution') desc = 'Moderate risk. Stay alert.';
+        if (d.data.label === 'Unsafe') desc = 'High risk. Move indoors.';
+
+        setTooltip({
+          show: true,
+          x: x,
+          y: y,
+          zone: d.data.label,
+          color: d.data.color,
+          val: d.data.value,
+          tip: desc
+        });
       })
       .on('mouseleave', function () {
         d3.select(this)
           .transition()
           .duration(200)
           .attr('d', arc);
+
+        centerValueText.text(`${(maxEntry.value * 100).toFixed(1)}%`).attr('fill', '#164043');
+        centerLabelText.text(maxEntry.label).attr('fill', maxEntry.color);
         setActiveSlice(null);
+        setTooltip(prev => ({ ...prev, show: false }));
       });
 
-    // Center display
-    const centerDisplay = activeSlice || maxEntry;
-
-    g.append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', '-0.15em')
-      .attr('fill', darkMode ? '#f8fafc' : '#0f172a')
-      .attr('font-size', '24px')
-      .attr('font-weight', '800')
-      .text(`${(centerDisplay.value * 100).toFixed(1)}%`);
-
-    g.append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', '1.4em')
-      .attr('fill', centerDisplay.color)
-      .attr('font-size', '13px')
-      .attr('font-weight', '700')
-      .text(centerDisplay.label);
-
-  }, [probabilities, activeSlice, darkMode]);
+  }, [probabilities]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       <svg ref={svgRef} style={{ width: '100%', maxWidth: '280px', height: 'auto' }} />
+
+      {/* Donut Tooltip - Data Oriented */}
+      {tooltip.show && (
+        <div style={{
+          position: 'absolute',
+          left: tooltip.x + 20,
+          top: tooltip.y - 20,
+          backgroundColor: '#164043',
+          color: '#f8fafc',
+          padding: '10px 14px',
+          borderRadius: '10px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+          pointerEvents: 'none',
+          zIndex: 1000,
+          width: '160px',
+          transition: 'opacity 0.2s ease, transform 0.2s ease',
+          transform: 'translateY(-50%)',
+          borderLeft: `4px solid ${tooltip.color}`
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: tooltip.color }} />
+            <span style={{ fontWeight: 800, fontSize: '13px' }}>{tooltip.zone} Chance</span>
+          </div>
+          <div style={{ fontSize: '18px', fontWeight: '900', marginBottom: '4px' }}>
+            {(tooltip.val * 100).toFixed(1)} <span style={{ fontSize: '11px', fontWeight: 600, opacity: 0.8 }}>%</span>
+          </div>
+          <div style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: 1.4 }}>
+            {tooltip.tip}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '14px', marginTop: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
         {[
-          { label: 'Safe', color: '#2e7d32', val: probabilities[0] },
-          { label: 'Caution', color: '#ed6c02', val: probabilities[1] },
+          { label: 'Safe', color: '#164043', val: probabilities[0] },
+          { label: 'Caution', color: '#E65100', val: probabilities[1] },
           { label: 'Unsafe', color: '#d32f2f', val: probabilities[2] }
         ].map((item) => (
-          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+          <div key={item.label} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '13px',
+            opacity: activeSlice === null || activeSlice === item.label ? 1 : 0.3,
+            transition: 'opacity 0.2s ease'
+          }}>
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: item.color }} />
-            <span style={{ fontWeight: 600 }}>{item.label}:</span>
-            <span style={{ opacity: 0.85 }}>{((item.val || 0) * 100).toFixed(1)}%</span>
+            <span style={{ fontWeight: 600, color: '#164043' }}>{item.label}:</span>
+            <span style={{ opacity: 0.85, color: '#475569' }}>{((item.val || 0) * 100).toFixed(1)}%</span>
           </div>
         ))}
       </div>

@@ -40,7 +40,7 @@ const PRESETS = {
   },
   heat: {
     name: 'Summer Heatwave (Inversion)',
-    data: { temp: 37.0, humidity: 82.0, wind_speed: 0.8, wind_dir: 315, rain: 0.0, pressure: 1008.0, hour: 13, day_of_week: 4, is_holiday: 0 }
+    data: { temp: 32.0, humidity: 75.0, wind_speed: 1.5, wind_dir: 315, rain: 0.0, pressure: 1008.0, hour: 13, day_of_week: 4, is_holiday: 0 }
   },
   haze: {
     name: 'Bushfire Smoke / High Haze',
@@ -94,7 +94,15 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
   // Local scientific fallback simulator mirroring FastAPI backend logic
   const calculateLocalPrediction = (data) => {
     const rush = Math.exp(-Math.pow((data.hour - 8) / 2.5, 2)) + 0.6 * Math.exp(-Math.pow((data.hour - 18) / 2.5, 2));
-    const baseEstimate = 12 + 1.6 * Math.max(0, data.temp - 20) - 0.25 * (data.humidity - 50) - 0.3 * data.wind_speed + 0.6 * (data.pressure - 1013) - 6 * data.rain + 5 * rush - (data.is_holiday ? 2 : 0);
+
+    // Calculate baseline estimate
+    let baseEstimate = 12 + 1.6 * Math.max(0, data.temp - 20) - 0.25 * (data.humidity - 50) - 0.3 * data.wind_speed + 0.6 * (data.pressure - 1013) - 6 * data.rain + 5 * rush - (data.is_holiday ? 2 : 0);
+
+    // NEW: Apply the extreme dry heat (Bushfire) penalty exactly like the backend
+    if (data.temp > 30.0 && data.humidity < 40.0) {
+      baseEstimate += 25.0;
+    }
+
     const pm25 = Math.max(1, Math.min(130, Math.round(baseEstimate * 10) / 10));
 
     let prediction = 0;
@@ -113,6 +121,8 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
 
     // Safety rule override for extreme atmospheric conditions
     let overrideApplied = false;
+
+    // Heatwave stagnation rule
     if (data.temp > 35 && data.humidity > 75 && data.wind_speed < 1.5) {
       prediction = 2;
       label = 'Unsafe';
@@ -122,6 +132,13 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
       prediction = 1;
       label = 'Caution';
       probabilities = [0.12, 0.75, 0.13];
+      overrideApplied = true;
+    }
+    //  Bushfire smoke rule
+    else if (data.temp > 30 && data.humidity < 40 && data.wind_speed < 4.0) {
+      prediction = 2;
+      label = 'Unsafe';
+      probabilities = [0.05, 0.15, 0.80];
       overrideApplied = true;
     }
 
