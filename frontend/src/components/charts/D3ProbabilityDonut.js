@@ -24,6 +24,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
+    svg.style('background', 'transparent');
 
     const g = svg
       .attr('viewBox', `0 0 ${width} ${height}`)
@@ -84,13 +85,9 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
       .attr('font-weight', '700')
       .text(maxEntry.label);
 
-    // Donut Hover & Tooltip Logic
     paths
       .on('mouseenter', function (event, d) {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr('d', hoverArc);
+        d3.select(this).transition().duration(200).attr('d', hoverArc);
 
         centerValueText.text(`${(d.data.value * 100).toFixed(1)}%`).attr('fill', '#164043');
         centerLabelText.text(d.data.label).attr('fill', d.data.color);
@@ -99,7 +96,6 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
       .on('mousemove', function (event, d) {
         const [x, y] = d3.pointer(event, svgRef.current);
 
-        // Data-focused tip
         let desc = '';
         if (d.data.label === 'Safe') desc = 'Highest probability. Normal play.';
         if (d.data.label === 'Caution') desc = 'Moderate risk. Stay alert.';
@@ -116,10 +112,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
         });
       })
       .on('mouseleave', function () {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr('d', arc);
+        d3.select(this).transition().duration(200).attr('d', arc);
 
         centerValueText.text(`${(maxEntry.value * 100).toFixed(1)}%`).attr('fill', '#164043');
         centerLabelText.text(maxEntry.label).attr('fill', maxEntry.color);
@@ -130,10 +123,9 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
   }, [probabilities]);
 
   return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-      <svg ref={svgRef} style={{ width: '100%', maxWidth: '280px', height: 'auto' }} />
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', backgroundColor: 'transparent' }}>
+      <svg ref={svgRef} style={{ width: '100%', maxWidth: '280px', height: 'auto', backgroundColor: 'transparent' }} />
 
-      {/* Donut Tooltip - Data Oriented */}
       {tooltip.show && (
         <div style={{
           position: 'absolute',
@@ -164,7 +156,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '14px', marginTop: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: '14px', marginTop: '4px', flexWrap: 'wrap', justifyContent: 'center', backgroundColor: 'transparent' }}>
         {[
           { label: 'Safe', color: '#164043', val: probabilities[0] },
           { label: 'Caution', color: '#E65100', val: probabilities[1] },

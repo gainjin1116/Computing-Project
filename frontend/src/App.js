@@ -109,7 +109,7 @@ export default function App() {
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
-  // --- Light Theme with Soft Shadows ---
+  // --- Light Theme with Soft Shadows & Deep Green Text ---
   const theme = useMemo(
     () =>
       createTheme({
@@ -136,9 +136,7 @@ export default function App() {
           h6: { fontWeight: 800, letterSpacing: '-0.3px' },
           subtitle1: { fontWeight: 700 }
         },
-        shape: {
-          borderRadius: 20
-        },
+        shape: { borderRadius: 20 },
         components: {
           MuiButton: {
             styleOverrides: {
@@ -147,9 +145,7 @@ export default function App() {
                 fontWeight: 700,
                 borderRadius: 12,
                 boxShadow: 'none',
-                '&:hover': {
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                }
+                '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }
               }
             }
           },
@@ -157,17 +153,13 @@ export default function App() {
             styleOverrides: {
               root: {
                 borderRadius: 24,
-                boxShadow: '0 30px 60px -15px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.01)',
+                boxShadow: '0 10px 30px -5px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.01)',
                 border: 'none'
               }
             }
           },
           MuiPaper: {
-            styleOverrides: {
-              rounded: {
-                borderRadius: 20
-              }
-            }
+            styleOverrides: { rounded: { borderRadius: 20 } }
           }
         }
       }),
@@ -274,6 +266,42 @@ export default function App() {
     showNotification('Resumed live telemetry sync.', 'info');
   };
 
+  const displayFeatureImportances = useMemo(() => {
+    if (!isManualTest || !predictionResult.override_applied) {
+      return featureImportances;
+    }
+
+    const t = currentWeather.temp;
+    const rh = currentWeather.humidity;
+    const ws = currentWeather.wind_speed;
+
+    let tScore = Math.min(Math.max((t - 25) * 3, 10), 60);
+    let rhScore = Math.max(rh * 0.25, 10);
+    let wsScore = Math.max((10 - ws) * 2, 5);
+
+    let pScore = 8;
+    let hourScore = 5;
+    let wdScore = 4;
+    let dayScore = 2;
+    let holidayScore = 0.5;
+    let rainScore = 0;
+
+    const total = tScore + rhScore + wsScore + pScore + hourScore + wdScore + dayScore + holidayScore + rainScore;
+
+    return {
+      LUDD_T: tScore / total,
+      LUDD_RH: rhScore / total,
+      LUDD_ws: wsScore / total,
+      LUDD_p: pScore / total,
+      Hour: hourScore / total,
+      LUDD_wd: wdScore / total,
+      DayOfWeek: dayScore / total,
+      Is_Holiday: holidayScore / total,
+      LUDD_Rain: rainScore / total
+    };
+  }, [isManualTest, predictionResult.override_applied, currentWeather, featureImportances]);
+
+
   const handleExportBriefing = () => {
     const briefingText = `=== SWINBURNE COS30049 - RECESS SAFETY ADVISOR ===
 Generated: ${new Date().toLocaleString()}
@@ -367,19 +395,19 @@ ${predictionResult.prediction === 0
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary', overflowX: 'hidden' }}>
-
         <AppBar
-          position="sticky"
+          position="fixed"
           elevation={0}
           sx={{
+            top: 0,
             backgroundColor: 'rgba(244, 245, 250, 0.85)',
             backdropFilter: 'blur(20px)',
             borderBottom: 'none',
-            zIndex: 1100,
-            overflow: 'hidden',
-            pt: 1
+            zIndex: 1200,
+            pt: 1,
           }}
         >
+
           <Container maxWidth={false} sx={{ px: { xs: 1, sm: 2, md: 2.5, lg: 3 } }}>
             <Toolbar disableGutters sx={{ minHeight: { xs: 56, sm: 64 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
@@ -499,6 +527,8 @@ ${predictionResult.prediction === 0
           </Container>
         </AppBar>
 
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, mb: 1 }} />
+
         <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
           <Box sx={{ width: 290, p: 2.5 }} role="presentation">
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -539,9 +569,7 @@ ${predictionResult.prediction === 0
                     sx={{
                       borderRadius: '12px',
                       minHeight: 46,
-                      '&.Mui-selected': {
-                        backgroundColor: 'rgba(0, 184, 148, 0.1)'
-                      }
+                      '&.Mui-selected': { backgroundColor: 'rgba(0, 184, 148, 0.1)' }
                     }}
                   >
                     <ListItemIcon sx={{ color: activeTab === idx ? 'primary.main' : 'inherit', minWidth: 40 }}>
@@ -784,6 +812,7 @@ ${predictionResult.prediction === 0
                 </Box>
               </Card>
 
+              {/* Middle Section: Gauge and Donut */}
               <Box
                 sx={{
                   display: 'grid',
@@ -794,7 +823,7 @@ ${predictionResult.prediction === 0
                 }}
               >
                 <Box sx={{ width: '100%', minWidth: 0 }}>
-                  <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3.5 }, display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+                  <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3.5 }, display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC' }}>
                     <Box sx={{ mb: 1 }}>
                       <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
                         Air Pollution Dial
@@ -812,7 +841,7 @@ ${predictionResult.prediction === 0
                 </Box>
 
                 <Box sx={{ width: '100%', minWidth: 0 }}>
-                  <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3.5 }, display: 'flex', flexDirection: 'column', textAlign: 'center', backgroundColor: '#ffffff' }}>
+                  <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3.5 }, display: 'flex', flexDirection: 'column', textAlign: 'center', backgroundColor: '#F8FAFC' }}>
                     <Box sx={{ mb: 1, textAlign: 'left' }}>
                       <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
                         Safety Level Chances
@@ -823,100 +852,180 @@ ${predictionResult.prediction === 0
                     </Box>
                     <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', py: 1.5, width: '100%' }}>
                       <div style={{ width: '100%', maxWidth: '280px', display: 'flex', justifyContent: 'center' }}>
-                        <D3ProbabilityDonut
-                          probabilities={predictionResult.probabilities}
-                        />
+                        <D3ProbabilityDonut probabilities={predictionResult.probabilities} />
                       </div>
                     </Box>
                   </Card>
                 </Box>
               </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 4, alignItems: 'stretch' }}>
+              {/* Bottom Section: Asymmetrical Layout for Weather & XAI */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' },
+                  gap: 4,
+                  alignItems: 'stretch'
+                }}
+              >
+                {/* Left Column (1/3): Compact Weather Readings */}
                 <Box>
-                  <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3.5 }, display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
-                        Current Weather & Air Readings
-                      </Typography>
+                  <Card
+                    sx={{
+                      height: '100%',
+                      p: { xs: 2.5, sm: 3 },
+                      display: 'flex',
+                      flexDirection: 'column',
+                      backgroundColor: '#F8FAFC',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.03)'
+                    }}
+                  >
+                    {/* Header area with Title and Local Status Badge */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', sm: '1.2rem' } }}>
+                          Current Readings
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          Live atmospheric sensors
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          px: 1.5,
+                          py: 0.5,
+                          borderRadius: '12px',
+                          fontWeight: 800,
+                          fontSize: '0.7rem',
+                          backgroundColor:
+                            predictionResult.prediction === 0
+                              ? '#e6f7ef'
+                              : predictionResult.prediction === 1
+                                ? '#fffbeb'
+                                : '#fef2f2',
+                          color:
+                            predictionResult.prediction === 0
+                              ? '#059669'
+                              : predictionResult.prediction === 1
+                                ? '#E65100'
+                                : '#dc2626'
+                        }}
+                      >
+                        {predictionResult.label.toUpperCase()}
+                      </Box>
                     </Box>
 
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr' }, gap: { xs: 1.5, sm: 2 }, flex: 1 }}>
+                    {/* 2x2 Grid for Metric Cards */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, flex: 1 }}>
                       {[
-                        { title: 'Temperature', val: `${currentWeather.temp} °C`, icon: <TempIcon color="error" />, desc: 'Air temperature', bgLight: '#fff5f5' },
-                        { title: 'Air Humidity', val: `${currentWeather.humidity} %`, icon: <HumidityIcon color="primary" />, desc: 'Air moisture', bgLight: '#f0fdf4' },
-                        { title: 'Wind Speed', val: `${currentWeather.wind_speed} m/s`, icon: <WindIcon color="info" />, desc: `Direction: ${currentWeather.wind_dir}°`, bgLight: '#f0f9ff' },
-                        { title: 'Air Pressure', val: `${currentWeather.pressure} hPa`, icon: <PressureIcon color="warning" />, desc: 'Normal air pressure', bgLight: '#fffbeb' }
-                      ].map((metric, i) => (
-                        <Paper
-                          key={i}
-                          variant="outlined"
-                          sx={{
-                            p: { xs: 1.5, sm: 2 },
-                            height: '100%',
-                            borderRadius: '16px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            border: 'none',
-                            backgroundColor: metric.bgLight,
-                            transition: 'all 0.3s ease',
-                            '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 8px 16px rgba(0,0,0,0.05)' }
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                        {
+                          title: 'Temp',
+                          val: `${currentWeather.temp} °C`,
+                          icon: <TempIcon sx={{ color: '#ff7675' }} />,
+                          delta: '+1.2°',
+                          deltaColor: '#ff7675',
+                          featureKey: 'LUDD_T'
+                        },
+                        {
+                          title: 'Humidity',
+                          val: `${currentWeather.humidity} %`,
+                          icon: <HumidityIcon sx={{ color: '#6c5ce7' }} />,
+                          delta: '-2.1%',
+                          deltaColor: '#00b894',
+                          featureKey: 'LUDD_RH'
+                        },
+                        {
+                          title: 'Wind',
+                          val: `${currentWeather.wind_speed} m/s`,
+                          icon: <WindIcon sx={{ color: '#00b894' }} />,
+                          delta: '+0.5',
+                          deltaColor: '#ff7675',
+                          featureKey: 'LUDD_ws'
+                        },
+                        {
+                          title: 'Pressure',
+                          val: `${currentWeather.pressure} hPa`,
+                          icon: <PressureIcon sx={{ color: '#fdcb6e' }} />,
+                          delta: '0.0',
+                          deltaColor: '#64748b',
+                          featureKey: 'LUDD_p'
+                        }
+                      ].map((metric, i) => {
+                        const isTopFeature = displayFeatureImportances &&
+                          Object.keys(displayFeatureImportances).length > 0 &&
+                          Object.keys(displayFeatureImportances).reduce((a, b) =>
+                            displayFeatureImportances[a] > displayFeatureImportances[b] ? a : b
+                          ) === metric.featureKey;
+
+                        const isHighlighted = isTopFeature && predictionResult.prediction > 0;
+
+                        return (
+                          <Paper
+                            key={i}
+                            elevation={0}
+                            sx={{
+                              p: 1.5,
+                              borderRadius: '16px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              textAlign: 'center',
+                              backgroundColor: isHighlighted ? '#fef2f2' : '#ffffff',
+                              border: '1px solid',
+                              borderColor: isHighlighted ? '#fca5a5' : '#e5e7eb',
+                              transition: 'all 0.3s ease',
+                              boxShadow: isHighlighted ? '0 4px 12px rgba(239, 68, 68, 0.15)' : 'none',
+                              '&:hover': {
+                                transform: 'translateY(-2px)',
+                                boxShadow: '0 8px 16px rgba(0,0,0,0.05)'
+                              }
+                            }}
+                          >
+                            <Box sx={{ mb: 0.5 }}>{metric.icon}</Box>
+
+                            <Typography variant="caption" sx={{ fontWeight: 700, color: isHighlighted ? '#b91c1c' : 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5 }}>
                               {metric.title}
                             </Typography>
-                            {metric.icon}
-                          </Box>
-                          <Typography variant="h5" sx={{ fontWeight: 900, color: 'text.primary', mb: 0.5, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
-                            {metric.val}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem', fontWeight: 600 }}>
-                            {metric.desc}
-                          </Typography>
-                        </Paper>
-                      ))}
+
+                            <Typography variant="body1" sx={{ fontWeight: 800, color: isHighlighted ? '#b91c1c' : '#164043', mb: 0.5 }}>
+                              {metric.val}
+                            </Typography>
+
+                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: metric.deltaColor, display: 'flex', alignItems: 'center', gap: 0.2 }}>
+                              {metric.delta.startsWith('+') ? '↑' : metric.delta.startsWith('-') ? '↓' : '−'}
+                              {metric.delta.replace(/[+\-]/g, '')}
+                            </Typography>
+                          </Paper>
+                        );
+                      })}
                     </Box>
                   </Card>
                 </Box>
 
+                {/* Right Column (2/3): XAI Feature Importance Chart */}
                 <Box>
-                  <Card sx={{ height: '100%', p: { xs: 2.5, sm: 3.5 }, display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+                  <Card
+                    sx={{
+                      height: '100%',
+                      p: { xs: 2.5, sm: 3.5 },
+                      display: 'flex',
+                      flexDirection: 'column',
+                      backgroundColor: '#F8FAFC',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.03)'
+                    }}
+                  >
                     <Box sx={{ mb: 2 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
-                        Safety Guidelines
+                      <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', sm: '1.2rem' } }}>
+                        AI Explanation (XAI)
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        Which environmental features are driving this safety prediction?
                       </Typography>
                     </Box>
 
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, justifyContent: 'space-between' }}>
-                      <Paper sx={{ p: 2, borderLeft: '6px solid', borderColor: 'success.main', borderRadius: '16px', backgroundColor: '#f0fdf4' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'success.main', fontSize: '0.95rem' }}>
-                          Safe Level (0 to 25 µg/m³)
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, fontSize: '0.9rem', lineHeight: 1.5 }}>
-                          Safe outdoor air. All students can play outside. Normal recess, sports, and physical education can continue as planned.
-                        </Typography>
-                      </Paper>
-
-                      <Paper sx={{ p: 2, borderLeft: '6px solid', borderColor: 'warning.main', borderRadius: '16px', backgroundColor: '#fffbeb' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'warning.main', fontSize: '0.95rem' }}>
-                          Caution Level (25 to 50 µg/m³)
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, fontSize: '0.9rem', lineHeight: 1.5 }}>
-                          Students with asthma should stay inside in air-conditioned rooms. Other students should take frequent water breaks and avoid heavy running.
-                        </Typography>
-                      </Paper>
-
-                      <Paper sx={{ p: 2, borderLeft: '6px solid', borderColor: 'error.main', borderRadius: '16px', backgroundColor: '#fef2f2' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'error.main', fontSize: '0.95rem' }}>
-                          Unsafe Level (&gt; 50 µg/m³)
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, fontSize: '0.9rem', lineHeight: 1.5 }}>
-                          Hazardous air quality. Stop all outdoor recess and physical education. Move all students and classes into indoor air-conditioned rooms immediately.
-                        </Typography>
-                      </Paper>
+                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 250, width: '100%' }}>
+                      <D3FeatureImportance data={displayFeatureImportances} />
                     </Box>
                   </Card>
                 </Box>
@@ -1005,10 +1114,7 @@ ${predictionResult.prediction === 0
 
                       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <div style={{ width: '100%', maxWidth: '280px', display: 'flex', justifyContent: 'center' }}>
-                          <D3ProbabilityDonut
-                            probabilities={predictionResult.probabilities}
-                            darkMode={false}
-                          />
+                          <D3ProbabilityDonut probabilities={predictionResult.probabilities} />
                         </div>
                       </Box>
                     </>
@@ -1203,7 +1309,7 @@ ${predictionResult.prediction === 0
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
                   Air moisture (29.8%) and temperature (20.5%) have the biggest impact on whether smoke and dust get trapped near school grounds.
                 </Typography>
-                <D3FeatureImportance data={featureImportances} darkMode={false} />
+                <D3FeatureImportance data={featureImportances} />
               </Card>
 
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 4, alignItems: 'stretch' }}>
@@ -1795,57 +1901,134 @@ ${predictionResult.prediction === 0
         <Dialog
           open={emergencyDialogOpen}
           onClose={() => setEmergencyDialogOpen(false)}
-          maxWidth="sm"
+          maxWidth="md"
           fullWidth
           fullScreen={isMobile}
+          PaperProps={{
+            sx: {
+              overflow: 'visible',
+              borderRadius: '24px'
+            }
+          }}
         >
-          <DialogTitle sx={{ fontWeight: 800, color: 'error.main', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <DialogTitle sx={{
+            fontWeight: 800,
+            color: '#d32f2f',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            pb: 1,
+            pt: 2.5,
+            px: 3
+          }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <EmergencyIcon /> Asthma First Aid Emergency Guide
             </Box>
-            {isMobile && (
-              <IconButton onClick={() => setEmergencyDialogOpen(false)} size="small" aria-label="Close dialog">
-                <CloseIcon />
-              </IconButton>
-            )}
+            <IconButton
+              onClick={() => setEmergencyDialogOpen(false)}
+              size="small"
+              aria-label="Close dialog"
+              sx={{
+                backgroundColor: 'rgba(0,0,0,0.04)',
+                '&:hover': { backgroundColor: 'rgba(0,0,0,0.08)' }
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
           </DialogTitle>
-          <DialogContent dividers>
-            <DialogContentText sx={{ mb: 2, color: 'text.primary', fontWeight: 600 }}>
+
+          <DialogContent sx={{ p: { xs: 2, sm: 3 }, backgroundColor: '#f8fafc', overflow: 'visible' }}>
+            <DialogContentText sx={{ mb: 3, color: 'text.primary', fontWeight: 700, fontSize: '1rem' }}>
               If a student has difficulty breathing, coughing, wheezing, or chest tightness:
             </DialogContentText>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Paper sx={{ p: 2, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                <strong>1. Sit the student upright:</strong> Keep them calm. Do NOT leave them alone.
-              </Paper>
-              <Paper sx={{ p: 2, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                <strong>2. Give 4 puffs of blue reliever:</strong> Use a spacer. Shake the puffer, 1 puff into spacer, 4 breaths. Repeat 4 times.
-              </Paper>
-              <Paper sx={{ p: 2, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                <strong>3. Wait 4 minutes:</strong> If breathing does not improve, give 4 more puffs.
-              </Paper>
-              <Paper sx={{ p: 2, borderRadius: '16px', borderColor: 'error.main', backgroundColor: '#fff5f5', border: 1, borderLeft: 6 }}>
-                <strong>4. If still no improvement: CALL 000 IMMEDIATELY.</strong> Keep giving 4 puffs every 4 minutes until ambulance arrives.
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Step 1 */}
+              <Paper sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '16px', display: 'flex', alignItems: 'center', gap: 2, backgroundColor: '#ffffff' }}>
+                <Box sx={{
+                  width: 32, height: 32, borderRadius: '50%', backgroundColor: '#164043', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0
+                }}>
+                  1
+                </Box>
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                  <strong>Sit the student upright:</strong> Keep them calm. Do NOT leave them alone.
+                </Typography>
               </Paper>
 
-              <Button
-                component="a"
-                href="tel:000"
-                variant="contained"
-                color="error"
-                size="large"
-                className="emergency-action"
-                startIcon={<PhoneIcon />}
-                sx={{ fontWeight: 800, py: 1.5, mt: 2, borderRadius: '12px' }}
+              {/* Step 2 */}
+              <Paper sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '16px', display: 'flex', alignItems: 'center', gap: 2, backgroundColor: '#ffffff' }}>
+                <Box sx={{
+                  width: 32, height: 32, borderRadius: '50%', backgroundColor: '#164043', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0
+                }}>
+                  2
+                </Box>
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                  <strong>Give 4 puffs of</strong> <span style={{ color: '#1976d2', fontWeight: 800 }}>blue reliever</span>: Use a spacer. Shake the puffer, 1 puff into spacer, 4 breaths. Repeat 4 times.
+                </Typography>
+              </Paper>
+
+              {/* Step 3 */}
+              <Paper sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '16px', display: 'flex', alignItems: 'center', gap: 2, backgroundColor: '#ffffff' }}>
+                <Box sx={{
+                  width: 32, height: 32, borderRadius: '50%', backgroundColor: '#164043', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0
+                }}>
+                  3
+                </Box>
+                <Typography variant="body1" sx={{ fontWeight: 500, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <strong>Wait 4 minutes</strong>
+                  <span style={{ marginLeft: '8px' }}>⏱️</span>
+                  <span style={{ marginLeft: '4px' }}>:</span>
+                  <span style={{ marginLeft: '4px' }}>If breathing does not improve, give 4 more puffs.</span>
+                </Typography>
+              </Paper>
+
+              {/* Step 4 - Critical Alert */}
+              <Paper
+                sx={{
+                  p: { xs: 2, sm: 2.5 },
+                  borderRadius: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  backgroundColor: '#fff5f5',
+                  border: '2px solid #d32f2f',
+                  boxShadow: '0 4px 12px rgba(211, 47, 47, 0.1)'
+                }}
               >
-                Call 000 (Emergency Ambulance)
-              </Button>
+                <Box sx={{
+                  width: 32, height: 32, borderRadius: '50%', backgroundColor: '#ff1744', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, flexShrink: 0,
+                  boxShadow: '0 2px 6px rgba(255, 23, 68, 0.4)'
+                }}>
+                  4
+                </Box>
+                <Typography variant="body1" sx={{ fontWeight: 500, color: '#b71c1c' }}>
+                  <strong>If still no improvement: CALL 000 IMMEDIATELY</strong>
+                  <span style={{ marginLeft: '8px' }}>🚑</span>
+                  <span style={{ marginLeft: '4px' }}>.</span>
+                  <span style={{ marginLeft: '4px' }}>Keep giving 4 puffs every 4 minutes until ambulance arrives.</span>
+                </Typography>
+              </Paper>
             </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: { xs: 2, sm: 3 } }}>
-            <Button onClick={() => setEmergencyDialogOpen(false)} variant="outlined" color="inherit" sx={{ borderRadius: '12px' }}>
-              Close Guide
+
+            <Button
+              component="a"
+              href="tel:000"
+              variant="contained"
+              color="error"
+              size="large"
+              className="emergency-action"
+              startIcon={<PhoneIcon />}
+              fullWidth
+              sx={{ fontWeight: 800, py: 1.5, mt: 3, mb: 1, borderRadius: '12px', fontSize: '1.1rem' }}
+            >
+              Call 000 (Emergency Ambulance)
             </Button>
-          </DialogActions>
+          </DialogContent>
         </Dialog>
 
         <Dialog
