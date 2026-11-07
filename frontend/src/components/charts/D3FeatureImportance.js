@@ -47,9 +47,9 @@ export default function D3FeatureImportance({ data }) {
 
     items.sort((a, b) => b.value - a.value);
 
-    const margin = { top: 10, right: 50, bottom: 30, left: 140 };
-    const width = 560;
-    const height = 300;
+    const margin = { top: 10, right: 40, bottom: 20, left: 120 };
+    const width = 500;
+    const height = 280;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -62,8 +62,9 @@ export default function D3FeatureImportance({ data }) {
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    const x = d3.scaleLinear().domain([0, 0.5]).range([0, innerWidth]); // Extended domain to fit 48.2%
-    const y = d3.scaleBand().domain(items.map(d => d.feature)).range([0, innerHeight]).padding(0.3);
+    const x = d3.scaleLinear().domain([0, 0.5]).range([0, innerWidth]);
+    // Thinner bars by increasing padding
+    const y = d3.scaleBand().domain(items.map(d => d.feature)).range([0, innerHeight]).padding(0.4);
 
     // Gridlines
     g.append('g')
@@ -72,13 +73,13 @@ export default function D3FeatureImportance({ data }) {
       .attr('stroke-opacity', 0.05)
       .attr('color', '#164043');
 
-    // Bars with Deep Green Gradient
+    // Bars with richer green gradient
     const defs = svg.append('defs');
     const grad = defs.append('linearGradient')
       .attr('id', 'barGrad')
       .attr('x1', '0%').attr('y1', '0%').attr('x2', '100%').attr('y2', '0%');
-    grad.append('stop').attr('offset', '0%').attr('stop-color', '#164043');
-    grad.append('stop').attr('offset', '100%').attr('stop-color', '#00b894');
+    grad.append('stop').attr('offset', '0%').attr('stop-color', '#064e3b'); // Deep emerald
+    grad.append('stop').attr('offset', '100%').attr('stop-color', '#34d399'); // Light emerald
 
     const bars = g.selectAll('rect')
       .data(items)
@@ -88,36 +89,29 @@ export default function D3FeatureImportance({ data }) {
       .attr('height', y.bandwidth())
       .attr('x', 0)
       .attr('width', 0)
-      .attr('rx', 6)
+      .attr('rx', 4) // Slightly less rounded for a sleeker look
       .attr('fill', 'url(#barGrad)')
       .style('cursor', 'pointer');
 
-    // Bar animation
     bars.transition().duration(800).delay((_, i) => i * 40).attr('width', d => x(d.value));
 
-    // Value labels (Dynamic positioning based on bar length)
+    // Value labels
     g.selectAll('.val-label')
       .data(items)
       .enter()
       .append('text')
       .attr('class', 'val-label')
-      .attr('x', d => {
-        // If bar is longer than 40%, put text inside the bar; otherwise outside.
-        if (d.value >= 0.40) {
-          return x(d.value) - 10; // Padding inside the right edge
-        }
-        return x(d.value) + 10; // Padding outside the right edge
-      })
+      .attr('x', d => d.value >= 0.40 ? x(d.value) - 8 : x(d.value) + 8)
       .attr('y', d => y(d.feature) + y.bandwidth() / 2 + 4)
-      .attr('text-anchor', d => d.value >= 0.40 ? 'end' : 'start') // Right align if inside
-      .attr('fill', d => d.value >= 0.40 ? '#ffffff' : '#475569') // White text if inside bar
+      .attr('text-anchor', d => d.value >= 0.40 ? 'end' : 'start')
+      .attr('fill', d => d.value >= 0.40 ? '#ffffff' : '#475569')
       .attr('font-size', '11px')
       .attr('font-weight', '700')
       .text(d => `${(d.value * 100).toFixed(1)}%`);
 
     // Y Axis
     const yAxis = g.append('g').call(d3.axisLeft(y).tickFormat(f => FRIENDLY_NAMES[f] || f));
-    yAxis.selectAll('text').attr('fill', '#164043').attr('font-size', '12px').attr('font-weight', '700');
+    yAxis.selectAll('text').attr('fill', '#164043').attr('font-size', '11px').attr('font-weight', '700');
     yAxis.select('.domain').attr('color', '#e2e8f0');
 
     // X Axis
@@ -125,10 +119,10 @@ export default function D3FeatureImportance({ data }) {
       .attr('transform', `translate(0, ${innerHeight})`)
       .call(d3.axisBottom(x).tickValues([0, 0.1, 0.2, 0.3, 0.4, 0.5]).tickFormat(d => `${(d * 100).toFixed(0)}%`))
       .call(g => g.select('.domain').attr('x2', innerWidth));
-    xAxis.selectAll('text').attr('fill', '#64748b').attr('font-size', '11px');
+    xAxis.selectAll('text').attr('fill', '#64748b').attr('font-size', '10px');
     xAxis.select('.domain').attr('color', '#e2e8f0');
 
-    // --- D3 Native HTML Tooltip with Smart Positioning ---
+    // Tooltip
     const tooltip = d3.select('body').append('div')
       .style('position', 'absolute')
       .style('background-color', '#164043')
@@ -144,11 +138,9 @@ export default function D3FeatureImportance({ data }) {
       .style('border-left', '4px solid #00b894')
       .style('font-family', "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif");
 
-    // Hover Interactions
     bars
       .on('mouseenter', function (event, d) {
         d3.select(this).transition().duration(150).attr('opacity', 0.8);
-
         tooltip.transition().duration(150).style('opacity', 1);
         tooltip.html(`
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -161,27 +153,19 @@ export default function D3FeatureImportance({ data }) {
         `);
       })
       .on('mousemove', function (event) {
-        // Smart Positioning: Shift tooltip left if mouse is near right edge
         const tooltipWidth = 220;
         const windowWidth = window.innerWidth;
-
-        let leftPos = event.pageX + 20; // Default right
-
-        // If placing it on the right would go off-screen, place it on the left
+        let leftPos = event.pageX + 20;
         if (leftPos + tooltipWidth > windowWidth) {
           leftPos = event.pageX - tooltipWidth - 20;
         }
-
-        tooltip
-          .style('left', leftPos + 'px')
-          .style('top', (event.pageY - 30) + 'px');
+        tooltip.style('left', leftPos + 'px').style('top', (event.pageY - 30) + 'px');
       })
       .on('mouseleave', function () {
         d3.select(this).transition().duration(150).attr('opacity', 1);
         tooltip.transition().duration(150).style('opacity', 0);
       });
 
-    // Cleanup function
     return () => {
       tooltip.remove();
     };

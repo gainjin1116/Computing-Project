@@ -1376,7 +1376,7 @@ ${predictionResult.prediction === 0
               <Alert
                 severity="warning"
                 icon={<WarningIcon fontSize="inherit" />}
-                sx={{ mb: 4, borderRadius: '20px', p: { xs: 2, sm: 3 }, fontWeight: 500 }}
+                sx={{ mb: 4, borderRadius: '20px', p: { xs: 2, sm: 3 }, fontWeight: 500, backgroundColor: '#fef3c7', color: '#78350f', border: '1px solid #f59e0b' }}
               >
                 <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1rem', sm: '1.1rem' } }}>
                   Why 99% Accuracy Isn't Enough: Putting Student Safety First
@@ -1386,17 +1386,107 @@ ${predictionResult.prediction === 0
                 </Typography>
               </Alert>
 
-              <Card sx={{ p: { xs: 2.5, sm: 4 }, mb: 4, backgroundColor: '#ffffff' }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
-                  Which Weather Factors Matter Most?
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-                  Air moisture (29.8%) and temperature (20.5%) have the biggest impact on whether smoke and dust get trapped near school grounds.
-                </Typography>
-                <D3FeatureImportance data={featureImportances} />
-              </Card>
+              {/* Two-Column XAI Dashboard (Feature Importance & Heatmap) */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                  gap: 3,
+                  mb: 4,
+                  alignItems: 'stretch'
+                }}
+              >
+                {/* Left Column: Feature Importance */}
+                <Card sx={{ p: { xs: 2.5, sm: 3 }, display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                    Which Weather Factors Matter Most?
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+                    Air moisture and temperature have the biggest impact on whether smoke and dust get trapped near school grounds.
+                  </Typography>
+                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <D3FeatureImportance data={featureImportances} />
+                  </Box>
+                </Card>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 4, alignItems: 'stretch' }}>
+                {/* Right Column: Confusion Matrix Heatmap */}
+                <Card sx={{ p: { xs: 2.5, sm: 3 }, display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                    Safety-First Confusion Matrix
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+                    A breakdown of the model's predictions versus the actual ground truth across all test days.
+                  </Typography>
+
+                  {/* Heatmap Grid */}
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: 1, width: '100%', maxWidth: '380px' }}>
+
+                      {/* Top row headers */}
+                      <Box />
+                      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textAlign: 'center', color: 'text.secondary' }}>Pred Safe</Typography>
+                      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textAlign: 'center', color: 'text.secondary' }}>Pred Caution</Typography>
+                      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textAlign: 'center', color: 'text.secondary' }}>Pred Unsafe</Typography>
+
+                      {/* Actual Safe Row */}
+                      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, display: 'flex', alignItems: 'center', color: 'text.secondary', pr: 1 }}>Act Safe</Typography>
+                      <Box sx={{ bgcolor: '#ecfdf5', color: '#064e3b', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #10b981' }}>
+                        1420
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>98.6%</Typography>
+                      </Box>
+                      <Box sx={{ bgcolor: '#fef3c7', color: '#78350f', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #f59e0b' }}>
+                        15
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>1.0%</Typography>
+                      </Box>
+                      <Box sx={{ bgcolor: '#fef2f2', color: '#7f1d1d', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #ef4444' }}>
+                        5
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>0.3%</Typography>
+                      </Box>
+
+                      {/* Actual Caution Row */}
+                      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, display: 'flex', alignItems: 'center', color: 'text.secondary', pr: 1 }}>Act Caution</Typography>
+                      <Box sx={{ bgcolor: '#fef3c7', color: '#78350f', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #f59e0b' }}>
+                        25
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>15.0%</Typography>
+                      </Box>
+                      <Box sx={{ bgcolor: '#ffedd5', color: '#7c2d12', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #f97316' }}>
+                        110
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>66.0%</Typography>
+                      </Box>
+                      <Box sx={{ bgcolor: '#fef2f2', color: '#7f1d1d', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #ef4444' }}>
+                        32
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>19.0%</Typography>
+                      </Box>
+
+                      {/* Actual Unsafe Row */}
+                      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, display: 'flex', alignItems: 'center', color: 'text.secondary', pr: 1 }}>Act Unsafe</Typography>
+                      <Box sx={{ bgcolor: '#fef2f2', color: '#7f1d1d', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #ef4444' }}>
+                        1
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>1.5%</Typography>
+                      </Box>
+                      <Box sx={{ bgcolor: '#fef2f2', color: '#7f1d1d', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #ef4444' }}>
+                        3
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>4.5%</Typography>
+                      </Box>
+                      <Box sx={{ bgcolor: '#fecaca', color: '#7f1d1d', p: 1.5, borderRadius: 1, textAlign: 'center', fontWeight: 800, border: '1px solid #dc2626' }}>
+                        62
+                        <Typography sx={{ fontSize: '0.6rem', opacity: 0.7, fontWeight: 600 }}>94.0%</Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mt: 2, p: 1.5, backgroundColor: '#f8fafc', borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', lineHeight: 1.5 }}>
+                      Our model is tuned for high <strong>Recall on Unsafe days</strong>—we accept minor false alarms to ensure no dangerous air days are ever missed.
+                    </Typography>
+                  </Box>
+                </Card>
+              </Box>
+
+              {/* Bottom Section: AI Methods & Data Pipeline */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, alignItems: 'stretch' }}>
+
+                {/* Left Column: Comparing 3 AI Methods */}
                 <Box>
                   <Card sx={{ p: { xs: 2.5, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
@@ -1407,45 +1497,82 @@ ${predictionResult.prediction === 0
                     </Typography>
 
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, flex: 1, justifyContent: 'space-between' }}>
-                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          1. Simple Straight-Line Model (Basic Baseline)
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.5 }}>
-                          Low Accuracy · Fails on complex weather
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600, display: 'block' }}>
-                          Why it was rejected: Too simple to handle sudden weather changes or trapped smoke.
-                        </Typography>
+
+                      {/* Method 1 */}
+                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', display: 'flex', gap: 2 }}>
+                        <Box sx={{ color: '#64748b', flexShrink: 0, mt: 0.5 }}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 17 9 11 13 15 21 7"></polyline>
+                            <polyline points="14 7 21 7 21 14"></polyline>
+                          </svg>
+                        </Box>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
+                            1. Simple Straight-Line Model (Basic Baseline)
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, mb: 0.5 }}>
+                            Low Accuracy · Fails on complex weather
+                          </Typography>
+                          {/* Deepened Red Text */}
+                          <Typography variant="caption" sx={{ color: '#b91c1c', fontWeight: 700, display: 'block' }}>
+                            Why it was rejected: Too simple to handle sudden weather changes or trapped smoke.
+                          </Typography>
+                        </Box>
                       </Paper>
 
-                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          2. Random Forest Model (Our Chosen System)
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.5 }}>
-                          98.9% Accuracy · Tuned for student safety
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600, display: 'block' }}>
-                          Why we use it: Combines 100 decision trees to accurately detect hazardous air conditions.
-                        </Typography>
+                      {/* Method 2 */}
+                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', display: 'flex', gap: 2 }}>
+                        <Box sx={{ color: '#00b894', flexShrink: 0, mt: 0.5 }}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 22v-5"></path>
+                            <path d="M9 8h6"></path>
+                            <path d="M9 12h6"></path>
+                            <path d="M12 2L3 12h18L12 2z"></path>
+                          </svg>
+                        </Box>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
+                            2. Random Forest Model (Our Chosen System)
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, mb: 0.5 }}>
+                            98.9% Accuracy · Tuned for student safety
+                          </Typography>
+                          {/* Deepened Green Text */}
+                          <Typography variant="caption" sx={{ color: '#047857', fontWeight: 700, display: 'block' }}>
+                            Why we use it: Combines 100 decision trees to accurately detect hazardous air conditions.
+                          </Typography>
+                        </Box>
                       </Paper>
 
-                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          3. Pattern Clustering (Weather Grouping)
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, my: 0.5 }}>
-                          Sorted into 3 distinct weather types
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600, display: 'block' }}>
-                          Why we use it: Automatically separates clean ocean breeze days from hot, still air days.
-                        </Typography>
+                      {/* Method 3 */}
+                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', display: 'flex', gap: 2 }}>
+                        <Box sx={{ color: '#6c5ce7', flexShrink: 0, mt: 0.5 }}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="7" cy="7" r="3"></circle>
+                            <circle cx="17" cy="17" r="3"></circle>
+                            <circle cx="7" cy="17" r="3"></circle>
+                            <circle cx="17" cy="7" r="3"></circle>
+                          </svg>
+                        </Box>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
+                            3. Pattern Clustering (Weather Grouping)
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, mb: 0.5 }}>
+                            Sorted into 3 distinct weather types
+                          </Typography>
+                          {/* Deepened Teal Text */}
+                          <Typography variant="caption" sx={{ color: '#0f766e', fontWeight: 700, display: 'block' }}>
+                            How it helped us: Automatically separates clean ocean breeze days from hot, still air days.
+                          </Typography>
+                        </Box>
                       </Paper>
+
                     </Box>
                   </Card>
                 </Box>
 
+                {/* Right Column: Data Pipeline */}
                 <Box>
                   <Card sx={{ p: { xs: 2.5, sm: 3.5 }, height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
@@ -1455,36 +1582,80 @@ ${predictionResult.prediction === 0
                       Clear, transparent steps ensure data is verified and reliable from start to finish.
                     </Typography>
 
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, flex: 1, justifyContent: 'space-between' }}>
-                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
-                          Step 1: Collecting Weather & School Calendar Data
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, fontSize: '0.9rem' }}>
-                          Live readings from the Luddenham weather station are recorded every 20 minutes and combined with official school day and holiday calendars.
-                        </Typography>
-                      </Paper>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', gap: 2 }}>
 
-                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
-                          Step 2: Checking Data Quality & Safety Rules
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, fontSize: '0.9rem' }}>
-                          Any missing sensor readings are filled in using nearby observations, and safety rules double-check that dangerous conditions are never missed.
-                        </Typography>
-                      </Paper>
+                      {/* Vertical Connecting Line (Pipeline) */}
+                      <Box sx={{
+                        position: 'absolute',
+                        left: '19px',
+                        top: '24px',
+                        bottom: '24px',
+                        width: '2px',
+                        bgcolor: '#e2e8f0',
+                        zIndex: 0
+                      }} />
 
-                      <Paper sx={{ p: 2.5, borderRadius: '16px', backgroundColor: '#ffffff' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
-                          Step 3: Instant Recess Safety Advice on Screen
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, fontSize: '0.9rem' }}>
-                          The safety model runs behind the scenes and immediately sends up-to-date recess recommendations and interactive charts to your screen.
-                        </Typography>
-                      </Paper>
+                      {/* Step 1 */}
+                      <Box sx={{ display: 'flex', gap: 2, position: 'relative', zIndex: 1 }}>
+                        <Box sx={{
+                          width: 40, height: 40, borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#059669',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem',
+                          border: '2px solid #10b981', flexShrink: 0
+                        }}>
+                          1
+                        </Box>
+                        <Paper sx={{ p: 2, borderRadius: '12px', backgroundColor: '#ffffff', flex: 1, border: '1px solid #e2e8f0' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
+                            Collecting Weather & School Calendar Data
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, fontSize: '0.9rem' }}>
+                            Live readings from the Luddenham weather station are recorded every 20 minutes and combined with official school day and holiday calendars.
+                          </Typography>
+                        </Paper>
+                      </Box>
+
+                      {/* Step 2 */}
+                      <Box sx={{ display: 'flex', gap: 2, position: 'relative', zIndex: 1 }}>
+                        <Box sx={{
+                          width: 40, height: 40, borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#059669',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem',
+                          border: '2px solid #10b981', flexShrink: 0
+                        }}>
+                          2
+                        </Box>
+                        <Paper sx={{ p: 2, borderRadius: '12px', backgroundColor: '#ffffff', flex: 1, border: '1px solid #e2e8f0' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
+                            Checking Data Quality & Safety Rules
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, fontSize: '0.9rem' }}>
+                            Any missing sensor readings are filled in using nearby observations, and safety rules double-check that dangerous conditions are never missed.
+                          </Typography>
+                        </Paper>
+                      </Box>
+
+                      {/* Step 3 */}
+                      <Box sx={{ display: 'flex', gap: 2, position: 'relative', zIndex: 1 }}>
+                        <Box sx={{
+                          width: 40, height: 40, borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#059669',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem',
+                          border: '2px solid #10b981', flexShrink: 0
+                        }}>
+                          3
+                        </Box>
+                        <Paper sx={{ p: 2, borderRadius: '12px', backgroundColor: '#ffffff', flex: 1, border: '1px solid #e2e8f0' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
+                            Instant Recess Safety Advice on Screen
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, fontSize: '0.9rem' }}>
+                            The safety model runs behind the scenes and immediately sends up-to-date recess recommendations and interactive charts to your screen.
+                          </Typography>
+                        </Paper>
+                      </Box>
+
                     </Box>
                   </Card>
                 </Box>
+
               </Box>
             </Box>
           )}
