@@ -35,8 +35,7 @@ import {
   MenuItem,
   BottomNavigation,
   BottomNavigationAction,
-  useMediaQuery,
-  Skeleton
+  useMediaQuery
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -60,9 +59,10 @@ import axios from 'axios';
 // D3 Chart Components
 import D3GaugeChart from './components/charts/D3GaugeChart';
 import D3ProbabilityDonut from './components/charts/D3ProbabilityDonut';
+import D3WeatherRadar from './components/charts/D3WeatherRadar';
 import D3DiurnalTrend from './components/charts/D3DiurnalTrend';
 import D3FeatureImportance from './components/charts/D3FeatureImportance';
-import D3WeatherClusters from './components/charts/D3WeatherClusters';
+import D3WeekdayHeatmap from './components/charts/D3WeekdayHeatmap';
 import PredictForm from './components/PredictForm';
 import './App.css';
 
@@ -97,7 +97,6 @@ export default function App() {
     is_fallback: false,
     override_applied: false
   });
-  const [isCalculating, setIsCalculating] = useState(false);
   const [isManualTest, setIsManualTest] = useState(() => {
     return sessionStorage.getItem('manualTest') === 'true';
   });
@@ -1007,7 +1006,7 @@ ${predictionResult.prediction === 0
 
                             <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: metric.deltaColor, display: 'flex', alignItems: 'center', gap: 0.2 }}>
                               {metric.delta.startsWith('+') ? '↑' : metric.delta.startsWith('-') ? '↓' : '−'}
-                              {metric.delta.replace(/[+\-]/g, '')}
+                              {metric.delta.replace(/[+-]/g, '')}
                             </Typography>
                           </Paper>
                         );
@@ -1067,7 +1066,7 @@ ${predictionResult.prediction === 0
                   overflow: 'hidden'
                 }}
               >
-                {/* Left Column: Weather Simulator Form */}
+                {/* LEFT COLUMN: Weather Simulator Form */}
                 <Box sx={{ gridColumn: { lg: 'span 5' }, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                   <Card
                     sx={{
@@ -1089,13 +1088,12 @@ ${predictionResult.prediction === 0
                       <PredictForm
                         onPredict={handlePredictResult}
                         onBackendStatusChange={(status) => setBackendOnline(status)}
-                        onLoadingChange={setIsCalculating}
                       />
                     </Box>
                   </Card>
                 </Box>
 
-                {/* Right Column: Results and Action Directives */}
+                {/* RIGHT COLUMN: Results and Action Directives */}
                 <Box sx={{ gridColumn: { lg: 'span 7' }, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                   <Card
                     sx={{
@@ -1153,7 +1151,7 @@ ${predictionResult.prediction === 0
                       </Typography>
                     </Box>
 
-                    {/* Side-by-side layout: Donut & Directives */}
+                    {/* Side-by-side layout: Radar & Directives */}
                     <Box
                       sx={{
                         display: 'grid',
@@ -1164,12 +1162,14 @@ ${predictionResult.prediction === 0
                         minHeight: 0
                       }}
                     >
+                      {/* Left side: Radar Chart */}
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-                        <Box sx={{ transform: 'scale(0.9)', maxWidth: '230px', width: '100%' }}>
-                          <D3ProbabilityDonut probabilities={predictionResult.probabilities} />
+                        <Box sx={{ transform: 'scale(0.85)', width: '100%' }}>
+                          <D3WeatherRadar params={currentWeather} darkMode={false} />
                         </Box>
                       </Box>
 
+                      {/* Right side: Text details and alerts */}
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Paper
                           sx={{
@@ -1324,19 +1324,23 @@ ${predictionResult.prediction === 0
                 <D3DiurnalTrend activeParams={currentWeather} predictionResult={predictionResult} darkMode={false} />
               </Card>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 4, alignItems: 'stretch' }}>
+              {/* Bottom Row: Heatmap & Weekday Summary */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.2fr 1fr' }, gap: 4, alignItems: 'stretch' }}>
+
+                {/* Left: New Heatmap Component */}
                 <Box>
                   <Card sx={{ p: { xs: 2.5, sm: 3.5 }, height: '100%', backgroundColor: '#ffffff' }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
-                      Weather Patterns & Air Quality Groups
+                      Weekly Air Quality Heatmap
                     </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                      Groups similar weather into 3 simple categories to show how heat, moisture, and wind change smoke levels.
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+                      A day-by-day, hour-by-hour breakdown of average PM2.5 levels. Darker red areas indicate periods of higher pollution.
                     </Typography>
-                    <D3WeatherClusters darkMode={false} />
+                    <D3WeekdayHeatmap darkMode={false} />
                   </Card>
                 </Box>
 
+                {/* Right: Weekday vs Weekend Summary */}
                 <Box>
                   <Card sx={{ p: { xs: 2.5, sm: 3.5 }, height: '100%', backgroundColor: '#ffffff' }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
@@ -1359,7 +1363,7 @@ ${predictionResult.prediction === 0
                         const borderColor = isCaution ? '#f59e0b' : '#10b981';
 
                         return (
-                          <Paper key={idx} sx={{ p: 2, borderRadius: '16px', backgroundColor: '#ffffff' }}>
+                          <Paper key={idx} sx={{ p: 2, borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                                 {item.day}
@@ -1707,13 +1711,12 @@ ${predictionResult.prediction === 0
               {/* Protocol Tab 0: Emergency & First Aid */}
               {protocolTab === 0 && (
                 <Box className="fade-in">
-                  {/* Top Emergency Banner */}
                   <Card
                     sx={{
                       p: { xs: 2.5, sm: 3.5 },
                       mb: 4,
                       borderLeft: 8,
-                      borderColor: '#d32f2f', // Strong emergency red
+                      borderColor: '#d32f2f',
                       backgroundColor: '#FFF5F5'
                     }}
                   >
@@ -1728,7 +1731,7 @@ ${predictionResult.prediction === 0
                               fontWeight: 800,
                               fontSize: '0.75rem',
                               px: 1,
-                              backgroundColor: '#d32f2f', // Strong emergency red
+                              backgroundColor: '#d32f2f',
                               color: '#ffffff',
                               '& .MuiChip-icon': { color: '#ffffff' }
                             }}
@@ -1785,7 +1788,6 @@ ${predictionResult.prediction === 0
                     </Box>
                   </Card>
 
-                  {/* Bottom 4-Step Guide Card - Full width, 2x2 Grid */}
                   <Card sx={{ p: { xs: 2.5, sm: 3.5 }, width: '100%', backgroundColor: '#ffffff' }}>
                     <Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
@@ -1794,7 +1796,7 @@ ${predictionResult.prediction === 0
                             width: 38,
                             height: 38,
                             borderRadius: '12px',
-                            backgroundColor: '#d32f2f', // Strong red icon background
+                            backgroundColor: '#d32f2f',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -1814,7 +1816,6 @@ ${predictionResult.prediction === 0
                         </Box>
                       </Box>
 
-                      {/* 2x2 Grid for the Steps */}
                       <Box
                         sx={{
                           display: 'grid',
@@ -1835,7 +1836,7 @@ ${predictionResult.prediction === 0
                               p: 2,
                               borderRadius: '16px',
                               borderLeft: 4,
-                              borderColor: '#d32f2f', // Strong red border
+                              borderColor: '#d32f2f',
                               backgroundColor: '#ffffff',
                               borderTop: 'none', borderRight: 'none', borderBottom: 'none',
                               display: 'flex',
@@ -1887,7 +1888,6 @@ ${predictionResult.prediction === 0
                         </Box>
                       </Box>
 
-                      {/* 2x2 Grid for Playground Rules */}
                       <Box
                         sx={{
                           display: 'grid',
