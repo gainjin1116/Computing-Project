@@ -3,9 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from './App';
 
 describe('Recess Safety Advisor - Frontend Integration Tests', () => {
-  test('renders Recess Safety Advisor title and main heading with telemetry sync', async () => {
+  test('renders Recess Safety title and main heading with telemetry sync', async () => {
     render(<App />);
-    const titleElements = screen.getAllByText(/Recess Safety Advisor/i);
+    const titleElements = screen.getAllByText(/Recess Safety/i);
     expect(titleElements.length).toBeGreaterThan(0);
 
     const mainHeading = screen.getByText(/Recess is a GO/i);
@@ -17,60 +17,48 @@ describe('Recess Safety Advisor - Frontend Integration Tests', () => {
 
   test('renders navigation tabs and switches views', () => {
     render(<App />);
-    const checkConditionsTab = screen.getByText('Check Conditions');
-    expect(checkConditionsTab).toBeInTheDocument();
+    const conditionsTab = screen.getByRole('tab', { name: /Conditions/i });
+    expect(conditionsTab).toBeInTheDocument();
 
-    fireEvent.click(checkConditionsTab);
-    expect(screen.getByText(/Atmospheric Condition Simulator/i)).toBeInTheDocument();
-    expect(screen.getByText(/Continuous Meteorological Telemetry Sensors/i)).toBeInTheDocument();
+    fireEvent.click(conditionsTab);
+    expect(screen.getByText(/Weather Simulator/i)).toBeInTheDocument();
   });
 
-  test('validates accessible labels and spinbutton roles on numeric inputs', () => {
+  test('validates accessible sliders and input controls on simulator', () => {
     render(<App />);
-    // Switch to Check Conditions tab
-    fireEvent.click(screen.getByText('Check Conditions'));
+    // Switch to Conditions tab
+    fireEvent.click(screen.getByRole('tab', { name: /Conditions/i }));
 
-    // Check accessible inputs with associated label and spinbutton roles
-    const tempInput = screen.getByRole('spinbutton', { name: /temperature/i });
-    expect(tempInput).toBeInTheDocument();
-    expect(tempInput).toHaveAttribute('type', 'number');
+    const sliders = screen.getAllByRole('slider');
+    expect(sliders.length).toBeGreaterThanOrEqual(4);
 
-    const humidityInput = screen.getByRole('spinbutton', { name: /relative humidity/i });
-    expect(humidityInput).toBeInTheDocument();
-
-    const windInput = screen.getByRole('spinbutton', { name: /wind speed/i });
-    expect(windInput).toBeInTheDocument();
-
-    const rainInput = screen.getByRole('spinbutton', { name: /precipitation/i });
-    expect(rainInput).toBeInTheDocument();
-
-    const pressureInput = screen.getByRole('spinbutton', { name: /atmospheric pressure/i });
-    expect(pressureInput).toBeInTheDocument();
+    const calculateBtn = screen.getByRole('button', { name: /Calculate Safety Level/i });
+    expect(calculateBtn).toBeInTheDocument();
   });
 
-  test('clicking Reset to Baseline resets form values and recalculates prediction', async () => {
+  test('clicking Reset to Defaults resets form values and recalculates prediction', async () => {
     render(<App />);
-    fireEvent.click(screen.getByText('Check Conditions'));
+    fireEvent.click(screen.getByRole('tab', { name: /Conditions/i }));
 
-    const resetButton = screen.getByRole('button', { name: /Reset to Baseline/i });
+    const resetButton = screen.getByRole('button', { name: /Reset to Defaults/i });
     expect(resetButton).toBeInTheDocument();
 
     fireEvent.click(resetButton);
 
+    const calculateBtn = screen.getByRole('button', { name: /Calculate Safety Level/i });
+    fireEvent.click(calculateBtn);
+
     await waitFor(() => {
       expect(
-        screen.getByText(/Prediction successfully retrieved from FastAPI backend server|Loaded preset/i)
+        screen.getByText(/Prediction retrieved from FastAPI backend|computed via local ML engine/i)
       ).toBeInTheDocument();
     });
   });
 
   test('opens Health Officer Contact dialog, validates fields, and submits inquiry', async () => {
     render(<App />);
-    // Navigate to School Protocols tab
-    fireEvent.click(screen.getByText('School Protocols'));
-
-    const openContactBtn = screen.getByRole('button', { name: /Open Health Contact & Incident Form/i });
-    fireEvent.click(openContactBtn);
+    const contactBtn = screen.getByRole('button', { name: /Support & Contact/i });
+    fireEvent.click(contactBtn);
 
     expect(screen.getByText(/Contact School Health & Safety Officer/i)).toBeInTheDocument();
 

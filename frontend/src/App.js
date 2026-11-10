@@ -1046,45 +1046,36 @@ ${predictionResult.prediction === 0
 
           {/* --- Tab 1: Conditions Simulator --- */}
           {activeTab === 1 && (
-            <Box
-              className="fade-in"
-              sx={{
-                height: { xs: 'auto', lg: 'calc(100vh - 120px)' },
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden'
-              }}
-            >
+            <Box className="fade-in">
               <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: { xs: '1fr', lg: 'repeat(12, 1fr)' },
-                  gap: 2,
-                  alignItems: 'stretch',
-                  flex: 1,
-                  minHeight: 0,
-                  overflow: 'hidden'
+                  gap: 3,
+                  alignItems: 'stretch'
                 }}
               >
                 {/* LEFT COLUMN: Weather Simulator Form */}
-                <Box sx={{ gridColumn: { lg: 'span 5' }, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                <Box sx={{ gridColumn: { lg: 'span 5' }, display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <Card
                     sx={{
-                      height: '100%',
+                      backgroundColor: '#ffffff',
+                      p: { xs: 2.5, sm: 3 },
+                      borderRadius: '20px',
+                      boxShadow: '0 4px 24px rgba(0,0,0,0.04)',
+                      border: '1px solid rgba(0,0,0,0.06)',
                       display: 'flex',
                       flexDirection: 'column',
-                      backgroundColor: '#ffffff',
-                      overflow: 'hidden',
-                      p: 2
+                      height: '100%'
                     }}
                   >
-                    <Box sx={{ pb: 1, flexShrink: 0, borderBottom: 1, borderColor: 'divider' }}>
-                      <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', sm: '1.15rem' }, color: '#164043' }}>
+                    <Box sx={{ pb: 1.5, flexShrink: 0, borderBottom: 1, borderColor: 'divider' }}>
+                      <Typography variant="h5" sx={{ fontWeight: 800, fontSize: { xs: '1.2rem', sm: '1.35rem' }, color: '#164043' }}>
                         Weather Simulator
                       </Typography>
                     </Box>
 
-                    <Box sx={{ flex: 1, pt: 1.5 }}>
+                    <Box sx={{ pt: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
                       <PredictForm
                         onPredict={handlePredictResult}
                         onBackendStatusChange={(status) => setBackendOnline(status)}
@@ -1094,205 +1085,199 @@ ${predictionResult.prediction === 0
                 </Box>
 
                 {/* RIGHT COLUMN: Results and Action Directives */}
-                <Box sx={{ gridColumn: { lg: 'span 7' }, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                <Box sx={{ gridColumn: { lg: 'span 7' }, display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <Card
                     sx={{
-                      height: '100%',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid rgba(0,0,0,0.06)',
+                      boxShadow: '0 4px 24px rgba(0,0,0,0.04)',
+                      borderRadius: '20px',
+                      p: { xs: 2.5, sm: 3 },
                       display: 'flex',
                       flexDirection: 'column',
-                      backgroundColor: '#F8FAFC',
-                      border: '1px solid rgba(0,0,0,0.04)',
-                      overflow: 'hidden',
-                      p: 2,
-                      pt: 1.5
+                      height: '100%',
+                      justifyContent: 'space-between',
+                      gap: 2
                     }}
                   >
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        fontWeight: 800,
-                        color: 'text.secondary',
-                        mb: 1,
-                        letterSpacing: 0.5,
-                        textTransform: 'uppercase',
-                        fontSize: '0.68rem',
-                        flexShrink: 0
-                      }}
-                    >
-                      PREDICTED SAFETY LEVEL
-                    </Typography>
-
-                    {/* Header Banner */}
-                    <Box
-                      sx={{
-                        py: 1.25,
-                        px: 2,
-                        borderRadius: '14px',
-                        mb: 1.5,
-                        backgroundColor:
-                          predictionResult.prediction === 0
-                            ? 'success.main'
-                            : predictionResult.prediction === 1
-                              ? 'warning.main'
-                              : 'error.main',
-                        color: '#fff',
-                        boxShadow: '0 6px 18px rgba(0,0,0,0.1)',
-                        flexShrink: 0
-                      }}
-                    >
+                    <Box>
                       <Typography
-                        variant="h3"
-                        sx={{ fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.1, fontSize: { xs: '1.5rem', sm: '1.9rem' } }}
+                        variant="subtitle2"
+                        sx={{
+                          fontWeight: 800,
+                          color: 'text.secondary',
+                          mb: 1,
+                          letterSpacing: 0.6,
+                          textTransform: 'uppercase',
+                          fontSize: '0.78rem',
+                          flexShrink: 0
+                        }}
                       >
-                        {predictionResult.label}
+                        PREDICTED SAFETY LEVEL
                       </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.95, fontSize: '0.82rem' }}>
-                        PM2.5: {predictionResult.estimated_pm25} µg/m³
-                      </Typography>
-                    </Box>
 
-                    {/* Side-by-side layout: Radar & Directives */}
-                    <Box
-                      sx={{
-                        display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', md: '1fr 1.2fr' },
-                        gap: 1.5,
-                        flex: 1,
-                        alignItems: 'center',
-                        minHeight: 0
-                      }}
-                    >
-                      {/* Left side: Radar Chart */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-                        <Box sx={{ transform: 'scale(0.85)', width: '100%' }}>
+                      {/* Header Banner */}
+                      <Box
+                        sx={{
+                          py: 1.5,
+                          px: 2.5,
+                          borderRadius: '16px',
+                          mb: 2,
+                          backgroundColor:
+                            predictionResult.prediction === 0
+                              ? 'success.main'
+                              : predictionResult.prediction === 1
+                                ? 'warning.main'
+                                : 'error.main',
+                          color: '#fff',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                          flexShrink: 0
+                        }}
+                      >
+                        <Typography
+                          variant="h3"
+                          sx={{ fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.1, fontSize: { xs: '1.75rem', sm: '2.1rem' } }}
+                        >
+                          {predictionResult.label}
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 700, opacity: 0.95, fontSize: '0.95rem', mt: 0.25 }}>
+                          PM2.5: {predictionResult.estimated_pm25} µg/m³
+                        </Typography>
+                      </Box>
+
+                      {/* Weather Radar Chart: Big, Crisp, and Centered */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', my: 1 }}>
+                        <Box sx={{ width: '100%', maxWidth: 460, mx: 'auto' }}>
                           <D3WeatherRadar params={currentWeather} darkMode={false} />
                         </Box>
                       </Box>
+                    </Box>
 
-                      {/* Right side: Text details and alerts */}
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        <Paper
+                    {/* Bottom: Text details and alerts */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      <Paper
+                        sx={{
+                          p: { xs: 2, sm: 2.5 },
+                          borderRadius: '16px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid rgba(0,0,0,0.06)',
+                          boxShadow: '0 2px 10px rgba(0,0,0,0.02)'
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
                           sx={{
-                            p: 1.75,
-                            borderRadius: '12px',
-                            backgroundColor: '#ffffff',
-                            border: '1px solid rgba(0,0,0,0.05)',
+                            fontWeight: 800,
+                            mb: 0.75,
+                            display: 'block',
+                            fontSize: '0.82rem',
+                            letterSpacing: 0.6,
+                            textTransform: 'uppercase',
+                            color:
+                              predictionResult.prediction === 0 ? '#059669' : predictionResult.prediction === 1 ? '#b45309' : '#b91c1c'
                           }}
                         >
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontWeight: 800,
-                              mb: 0.5,
-                              display: 'block',
-                              fontSize: '0.7rem',
-                              textTransform: 'uppercase',
-                              color:
-                                predictionResult.prediction === 0 ? '#059669' : predictionResult.prediction === 1 ? '#b45309' : '#b91c1c'
-                            }}
-                          >
-                            What the School Should Do
-                          </Typography>
+                          What the School Should Do
+                        </Typography>
 
-                          {predictionResult.prediction === 0 ? (
-                            <Box sx={{ mt: 0.5 }}>
-                              <Typography variant="body2" sx={{ color: '#164043', fontWeight: 600, fontSize: '0.8rem', mb: 1, lineHeight: 1.3 }}>
-                                Current conditions are optimal for all outdoor activities. No AI safety overrides triggered.
-                              </Typography>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: 'success.main', fontSize: '0.78rem', display: 'inline' }}>Activities: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    General recess, physical education, and intense outdoor sports are permitted without restriction.
-                                  </Typography>
-                                </Box>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: 'success.main', fontSize: '0.78rem', display: 'inline' }}>Asthma Protocol: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    Standard monitoring. Students with known asthma should keep their blue reliever medication accessible in their bags.
-                                  </Typography>
-                                </Box>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: 'success.main', fontSize: '0.78rem', display: 'inline' }}>Hydration: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    Standard water breaks encouraged during physical exertion.
-                                  </Typography>
-                                </Box>
+                        {predictionResult.prediction === 0 ? (
+                          <Box sx={{ mt: 0.5 }}>
+                            <Typography variant="body1" sx={{ color: '#164043', fontWeight: 700, fontSize: '0.98rem', mb: 1.25, lineHeight: 1.45 }}>
+                              Current conditions are optimal for all outdoor activities. No AI safety overrides triggered.
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: 'success.main', fontSize: '0.9rem', display: 'inline' }}>Activities: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  General recess, physical education, and intense outdoor sports are permitted without restriction.
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: 'success.main', fontSize: '0.9rem', display: 'inline' }}>Asthma Protocol: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  Standard monitoring. Students with known asthma should keep their blue reliever medication accessible in their bags.
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: 'success.main', fontSize: '0.9rem', display: 'inline' }}>Hydration: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  Standard water breaks encouraged during physical exertion.
+                                </Typography>
                               </Box>
                             </Box>
-                          ) : predictionResult.prediction === 1 ? (
-                            <Box sx={{ mt: 0.5 }}>
-                              <Typography variant="body2" sx={{ color: '#164043', fontWeight: 600, fontSize: '0.8rem', mb: 1, lineHeight: 1.3 }}>
-                                Air quality is slightly degraded. Vulnerable students are at risk.
-                              </Typography>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: '#b45309', fontSize: '0.78rem', display: 'inline' }}>Activities: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    Limit intense aerobic activities (e.g., running, beep tests). Switch to gentle skills, passing drills, or walking games.
-                                  </Typography>
-                                </Box>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: '#b45309', fontSize: '0.78rem', display: 'inline' }}>Asthma Protocol: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    Students with asthma or respiratory conditions must remain indoors in air-conditioned rooms.
-                                  </Typography>
-                                </Box>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: '#b45309', fontSize: '0.78rem', display: 'inline' }}>Ventilation: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    Keep classroom windows and doors closed. Run air conditioners on internal recirculation.
-                                  </Typography>
-                                </Box>
+                          </Box>
+                        ) : predictionResult.prediction === 1 ? (
+                          <Box sx={{ mt: 0.5 }}>
+                            <Typography variant="body1" sx={{ color: '#164043', fontWeight: 700, fontSize: '0.98rem', mb: 1.25, lineHeight: 1.45 }}>
+                              Air quality is slightly degraded. Vulnerable students are at risk.
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#b45309', fontSize: '0.9rem', display: 'inline' }}>Activities: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  Limit intense aerobic activities (e.g., running, beep tests). Switch to gentle skills, passing drills, or walking games.
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#b45309', fontSize: '0.9rem', display: 'inline' }}>Asthma Protocol: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  Students with asthma or respiratory conditions must remain indoors in air-conditioned rooms.
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#b45309', fontSize: '0.9rem', display: 'inline' }}>Ventilation: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  Keep classroom windows and doors closed. Run air conditioners on internal recirculation.
+                                </Typography>
                               </Box>
                             </Box>
-                          ) : (
-                            <Box sx={{ mt: 0.5 }}>
-                              <Typography variant="body2" sx={{ color: '#164043', fontWeight: 600, fontSize: '0.8rem', mb: 1, lineHeight: 1.3 }}>
-                                Hazardous air quality detected. Immediate action required.
-                              </Typography>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.78rem', display: 'inline' }}>Activities: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    Suspend all outdoor recess, sports, and playground duty immediately.
-                                  </Typography>
-                                </Box>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.78rem', display: 'inline' }}>Relocation: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    Move all students and classes into indoor air-conditioned, filtered classrooms.
-                                  </Typography>
-                                </Box>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.78rem', display: 'inline' }}>Asthma Protocol: </Typography>
-                                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.78rem', display: 'inline', lineHeight: 1.3 }}>
-                                    Verify all asthmatic students have their inhalers and spacers readily accessible. Prepare the sick bay.
-                                  </Typography>
-                                </Box>
+                          </Box>
+                        ) : (
+                          <Box sx={{ mt: 0.5 }}>
+                            <Typography variant="body1" sx={{ color: '#164043', fontWeight: 700, fontSize: '0.98rem', mb: 1.25, lineHeight: 1.45 }}>
+                              Hazardous air quality detected. Immediate action required.
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.9rem', display: 'inline' }}>Activities: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  Suspend all outdoor recess, sports, and playground duty immediately.
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.9rem', display: 'inline' }}>Relocation: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  Move all students and classes into indoor air-conditioned, filtered classrooms.
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.9rem', display: 'inline' }}>Asthma Protocol: </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.9rem', display: 'inline', lineHeight: 1.45 }}>
+                                  Verify all asthmatic students have their inhalers and spacers readily accessible. Prepare the sick bay.
+                                </Typography>
                               </Box>
                             </Box>
-                          )}
-                        </Paper>
-
-                        {predictionResult.override_applied && (
-                          <Alert
-                            severity="warning"
-                            sx={{
-                              borderRadius: '10px',
-                              fontSize: '0.75rem',
-                              py: 0.75,
-                              px: 1.5,
-                              backgroundColor: '#fef3c7',
-                              color: '#78350f',
-                              border: '1px solid #f59e0b',
-                              '& .MuiAlert-icon': { fontSize: '1.2rem', color: '#b45309', py: 0 }
-                            }}
-                          >
-                            <strong>Safety Rule:</strong> Extreme heat or stagnant air overrides normal prediction to protect children.
-                          </Alert>
+                          </Box>
                         )}
-                      </Box>
+                      </Paper>
+
+                      {predictionResult.override_applied && (
+                        <Alert
+                          severity="warning"
+                          sx={{
+                            borderRadius: '12px',
+                            fontSize: '0.85rem',
+                            py: 1,
+                            px: 1.75,
+                            backgroundColor: '#fef3c7',
+                            color: '#78350f',
+                            border: '1px solid #f59e0b',
+                            '& .MuiAlert-icon': { fontSize: '1.25rem', color: '#b45309', py: 0 }
+                          }}
+                        >
+                          <strong>Safety Rule:</strong> Extreme heat or stagnant air overrides normal prediction to protect children.
+                        </Alert>
+                      )}
                     </Box>
                   </Card>
                 </Box>
