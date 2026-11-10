@@ -33,23 +33,20 @@ const PRESETS = {
 
 const inputStyle = {
   width: '100%',
-  padding: '8px 12px',
-  borderRadius: '10px',
-  border: '1px solid #cbd5e1',
-  fontSize: '0.92rem',
-  fontWeight: 600,
-  color: '#0f172a',
+  padding: '4px 6px',
+  borderRadius: '6px',
+  border: '1px solid #d1d5db',
+  fontSize: '0.75rem',
   backgroundColor: '#f8fafc',
   outline: 'none',
-  height: 40,
-  boxSizing: 'border-box',
-  transition: 'border-color 0.15s ease'
+  height: 28,
+  boxSizing: 'border-box'
 };
 
 export default function PredictForm({ onPredict, onBackendStatusChange }) {
   const [formData, setFormData] = useState({ ...PRESETS.calm.data });
   const [loading, setLoading] = useState(false);
-  const [, setErrors] = useState({});
+  const [errors, setErrors] = useState({});
   const [infoMessage, setInfoMessage] = useState(null);
 
   const handleChange = (e) => {
@@ -66,7 +63,6 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     setFormData(prev => ({ ...prev, [name]: newValue }));
   };
 
-  // This function handles both clicking a preset and clicking the reset button.
   const applyPreset = (key) => {
     setFormData({ ...PRESETS[key].data });
     setErrors({});
@@ -118,11 +114,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
 
     const submissionData = {
       ...formData,
-      temp: Number(formData.temp),
-      humidity: Number(formData.humidity),
-      wind_speed: Number(formData.wind_speed),
-      rain: Number(formData.rain),
-      pressure: Number(formData.pressure)
+      temp: Number(formData.temp), humidity: Number(formData.humidity), wind_speed: Number(formData.wind_speed), rain: Number(formData.rain), pressure: Number(formData.pressure)
     };
 
     setLoading(true);
@@ -144,216 +136,138 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     }
   };
 
-  // Renders a single slider row with clear labels and readable values
   const MetricRow = ({ label, value, unit, name, min, max, step, color = 'primary.main' }) => (
-    <Box sx={{ my: 0.5 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.25 }}>
-        <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: 'text.primary' }}>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary' }}>
           {label}
         </Typography>
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color }}>
+        <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color }}>
           {value} {unit}
         </Typography>
       </Box>
-      <Box sx={{ px: 0.5 }}>
+      <Box sx={{ mt: -0.5 }}>
         <Slider
-          size="medium"
+          size="small"
           value={typeof value === 'number' ? value : 0}
           min={min}
           max={max}
           step={step}
           onChange={handleSliderChange(name)}
-          sx={{
-            py: 1,
-            '& .MuiSlider-thumb': { width: 15, height: 15 },
-            '& .MuiSlider-track': { height: 5 },
-            '& .MuiSlider-rail': { height: 5, opacity: 0.3 }
-          }}
+          sx={{ py: 0.5, '& .MuiSlider-thumb': { width: 10, height: 10 } }}
         />
       </Box>
     </Box>
   );
 
   return (
-    <Box
-      component="form"
-      onSubmit={handleSubmit}
-      noValidate
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        justifyContent: 'space-between',
-        gap: 2
-      }}
-    >
-      {/* Top Controls Container */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-        {/* Presets Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
-            <Typography sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.6, mr: 0.25 }}>
-              Presets:
-            </Typography>
-            <Chip
-              size="small"
-              icon={<SunIcon sx={{ fontSize: '0.85rem !important', color: '#047857 !important' }} />}
-              label="Calm"
-              onClick={() => applyPreset('calm')}
-              sx={{ height: 28, fontSize: '0.82rem', fontWeight: 700, color: '#047857', borderColor: '#047857', backgroundColor: '#ecfdf5', px: 0.5 }}
-              variant="outlined"
-              clickable
-            />
-            <Chip
-              size="small"
-              icon={<RainIcon sx={{ fontSize: '0.85rem !important', color: '#1d4ed8 !important' }} />}
-              label="Rainy"
-              onClick={() => applyPreset('rainy')}
-              sx={{ height: 28, fontSize: '0.82rem', fontWeight: 700, color: '#1d4ed8', borderColor: '#1d4ed8', backgroundColor: '#eff6ff', px: 0.5 }}
-              variant="outlined"
-              clickable
-            />
-            <Chip
-              size="small"
-              icon={<WindIcon sx={{ fontSize: '0.85rem !important', color: '#0f766e !important' }} />}
-              label="Windy"
-              onClick={() => applyPreset('windy')}
-              sx={{ height: 28, fontSize: '0.82rem', fontWeight: 700, color: '#0f766e', borderColor: '#0f766e', backgroundColor: '#f0fdfa', px: 0.5 }}
-              variant="outlined"
-              clickable
-            />
-            <Chip
-              size="small"
-              icon={<HeatIcon sx={{ fontSize: '0.85rem !important', color: '#b45309 !important' }} />}
-              label="Heat"
-              onClick={() => applyPreset('heat')}
-              sx={{ height: 28, fontSize: '0.82rem', fontWeight: 700, color: '#b45309', borderColor: '#b45309', backgroundColor: '#fffbeb', px: 0.5 }}
-              variant="outlined"
-              clickable
-            />
-            <Chip
-              size="small"
-              icon={<HazeIcon sx={{ fontSize: '0.85rem !important', color: '#b91c1c !important' }} />}
-              label="Haze"
-              onClick={() => applyPreset('haze')}
-              sx={{ height: 28, fontSize: '0.82rem', fontWeight: 700, color: '#b91c1c', borderColor: '#b91c1c', backgroundColor: '#fef2f2', px: 0.5 }}
-              variant="outlined"
-              clickable
-            />
-          </Box>
+    <Box component="form" onSubmit={handleSubmit} noValidate sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {Object.keys(errors).length > 0 && (
+        <Alert severity="error" sx={{ mb: 1.5, py: 0, fontSize: '0.7rem', borderRadius: 1.5 }}>
+          {Object.values(errors)[0]}
+        </Alert>
+      )}
 
-          {/* Reset Button */}
-          <Tooltip title="Reset to Defaults">
-            <IconButton
-              size="small"
-              onClick={() => applyPreset('calm')}
-              sx={{ color: 'text.secondary', border: '1px solid', borderColor: 'divider', p: 0.75, borderRadius: '10px' }}
-            >
-              <ResetIcon sx={{ fontSize: '1.15rem' }} />
-            </IconButton>
-          </Tooltip>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+          <Typography sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: 0.5, mr: 0.5 }}>
+            Presets:
+          </Typography>
+          <Chip size="small" icon={<SunIcon sx={{ fontSize: '0.65rem !important', color: '#047857 !important' }} />} label="Calm" onClick={() => applyPreset('calm')} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, color: '#047857', borderColor: '#047857', backgroundColor: '#ecfdf5' }} variant="outlined" clickable />
+          <Chip size="small" icon={<RainIcon sx={{ fontSize: '0.65rem !important', color: '#1d4ed8 !important' }} />} label="Rainy" onClick={() => applyPreset('rainy')} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, color: '#1d4ed8', borderColor: '#1d4ed8', backgroundColor: '#eff6ff' }} variant="outlined" clickable />
+          <Chip size="small" icon={<WindIcon sx={{ fontSize: '0.65rem !important', color: '#0f766e !important' }} />} label="Windy" onClick={() => applyPreset('windy')} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, color: '#0f766e', borderColor: '#0f766e', backgroundColor: '#f0fdfa' }} variant="outlined" clickable />
+          <Chip size="small" icon={<HeatIcon sx={{ fontSize: '0.65rem !important', color: '#b45309 !important' }} />} label="Heat" onClick={() => applyPreset('heat')} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, color: '#b45309', borderColor: '#b45309', backgroundColor: '#fffbeb' }} variant="outlined" clickable />
+          <Chip size="small" icon={<HazeIcon sx={{ fontSize: '0.65rem !important', color: '#b91c1c !important' }} />} label="Haze" onClick={() => applyPreset('haze')} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, color: '#b91c1c', borderColor: '#b91c1c', backgroundColor: '#fef2f2' }} variant="outlined" clickable />
         </Box>
 
-        {/* Backend Status Alert */}
-        {infoMessage && (
-          <Alert
-            severity={infoMessage.includes('offline') ? 'info' : 'success'}
-            sx={{ py: 0.5, fontSize: '0.82rem', borderRadius: 2 }}
-            onClose={() => setInfoMessage(null)}
-          >
-            {infoMessage}
-          </Alert>
-        )}
+        <Tooltip title="Reset to Defaults">
+          <IconButton size="small" onClick={() => applyPreset('calm')} sx={{ ml: 1, color: 'text.secondary', border: '1px solid', borderColor: 'divider', p: 0.5 }}>
+            <ResetIcon sx={{ fontSize: '0.9rem' }} />
+          </IconButton>
+        </Tooltip>
+      </Box>
 
-        {/* Sliders Section: Evenly spaced with readable labels */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          <MetricRow label="Temperature" value={formData.temp} unit="°C" name="temp" min={-5} max={45} step={0.5} />
-          <MetricRow label="Humidity" value={formData.humidity} unit="%" name="humidity" min={0} max={100} step={1} />
-          <MetricRow label="Wind Speed" value={formData.wind_speed} unit="m/s" name="wind_speed" min={0} max={30} step={0.5} />
-          <MetricRow label="Rainfall" value={formData.rain} unit="mm" name="rain" min={0} max={40} step={0.5} />
+      {infoMessage && (
+        <Alert severity={infoMessage.includes('offline') ? 'info' : 'success'} sx={{ mb: 1, py: 0, fontSize: '0.7rem', borderRadius: 1.5 }} onClose={() => setInfoMessage(null)}>
+          {infoMessage}
+        </Alert>
+      )}
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mb: 1.5 }}>
+        <MetricRow label="Temperature" value={formData.temp} unit="°C" name="temp" min={-5} max={45} step={0.5} />
+        <MetricRow label="Humidity" value={formData.humidity} unit="%" name="humidity" min={0} max={100} step={1} />
+        <MetricRow label="Wind Speed" value={formData.wind_speed} unit="m/s" name="wind_speed" min={0} max={30} step={0.5} />
+        <MetricRow label="Rainfall" value={formData.rain} unit="mm" name="rain" min={0} max={40} step={0.5} />
+      </Box>
+
+      <Box sx={{ borderTop: 1, borderColor: 'divider', mb: 1, mt: -0.25 }} />
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1 }}>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.secondary', mb: 0.4 }}>Wind Dir</Typography>
+          <select name="wind_dir" value={formData.wind_dir} onChange={handleChange} style={inputStyle}>
+            <option value={0}>N (0°)</option>
+            <option value={45}>NE (45°)</option>
+            <option value={90}>E (90°)</option>
+            <option value={135}>SE (135°)</option>
+            <option value={180}>S (180°)</option>
+            <option value={225}>SW (225°)</option>
+            <option value={270}>W (270°)</option>
+            <option value={315}>NW (315°)</option>
+          </select>
         </Box>
-
-        <Box sx={{ borderTop: 1, borderColor: 'divider', my: 0.5 }} />
-
-        {/* Dropdowns Section: Wind Dir & Pressure */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-          <Box>
-            <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
-              Wind Dir
-            </Typography>
-            <select name="wind_dir" value={formData.wind_dir} onChange={handleChange} style={inputStyle}>
-              <option value={0}>N (0°)</option>
-              <option value={45}>NE (45°)</option>
-              <option value={90}>E (90°)</option>
-              <option value={135}>SE (135°)</option>
-              <option value={180}>S (180°)</option>
-              <option value={225}>SW (225°)</option>
-              <option value={270}>W (270°)</option>
-              <option value={315}>NW (315°)</option>
-            </select>
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
-              Pressure (hPa)
-            </Typography>
-            <input type="number" name="pressure" value={formData.pressure} onChange={handleChange} style={inputStyle} />
-          </Box>
-        </Box>
-
-        {/* Dropdowns Section: Hour, Day, Holiday */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.5 }}>
-          <Box>
-            <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
-              Hour
-            </Typography>
-            <select name="hour" value={formData.hour} onChange={handleChange} style={inputStyle}>
-              {[...Array(24)].map((_, h) => (
-                <option key={h} value={h}>{`${h % 12 || 12}${h < 12 ? 'a' : 'p'}`}</option>
-              ))}
-            </select>
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
-              Day
-            </Typography>
-            <select name="day_of_week" value={formData.day_of_week} onChange={handleChange} style={inputStyle}>
-              <option value={0}>Mon</option>
-              <option value={1}>Tue</option>
-              <option value={2}>Wed</option>
-              <option value={3}>Thu</option>
-              <option value={4}>Fri</option>
-              <option value={5}>Sat</option>
-              <option value={6}>Sun</option>
-            </select>
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
-              Holiday
-            </Typography>
-            <select name="is_holiday" value={formData.is_holiday} onChange={handleChange} style={inputStyle}>
-              <option value={0}>No</option>
-              <option value={1}>Yes</option>
-            </select>
-          </Box>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.secondary', mb: 0.4 }}>Pressure (hPa)</Typography>
+          <input type="number" name="pressure" value={formData.pressure} onChange={handleChange} style={inputStyle} />
         </Box>
       </Box>
 
-      {/* Calculate Button: Anchored firmly at bottom to align cleanly */}
-      <Box sx={{ pt: 1.5, borderTop: 1, borderColor: 'divider', mt: 1 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mb: 1.5 }}>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.secondary', mb: 0.4 }}>Hour</Typography>
+          <select name="hour" value={formData.hour} onChange={handleChange} style={inputStyle}>
+            {[...Array(24)].map((_, h) => (
+              <option key={h} value={h}>{`${h % 12 || 12}${h < 12 ? 'a' : 'p'}`}</option>
+            ))}
+          </select>
+        </Box>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.secondary', mb: 0.4 }}>Day</Typography>
+          <select name="day_of_week" value={formData.day_of_week} onChange={handleChange} style={inputStyle}>
+            <option value={0}>Mon</option>
+            <option value={1}>Tue</option>
+            <option value={2}>Wed</option>
+            <option value={3}>Thu</option>
+            <option value={4}>Fri</option>
+            <option value={5}>Sat</option>
+            <option value={6}>Sun</option>
+          </select>
+        </Box>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.secondary', mb: 0.4 }}>Holiday</Typography>
+          <select name="is_holiday" value={formData.is_holiday} onChange={handleChange} style={inputStyle}>
+            <option value={0}>No</option>
+            <option value={1}>Yes</option>
+          </select>
+        </Box>
+      </Box>
+
+      <Box sx={{ pt: 1.5, mt: 'auto', borderTop: 1, borderColor: 'divider' }}>
         <Button
           type="submit"
           fullWidth
           variant="contained"
-          color="primary"
           disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PredictIcon />}
+          startIcon={loading ? <CircularProgress size={14} color="inherit" /> : <PredictIcon />}
           sx={{
+            backgroundColor: '#1D3557',
+            color: '#ffffff',
+            '&:hover': { backgroundColor: '#11223a' },
             fontWeight: 800,
-            borderRadius: '12px',
-            minHeight: 46,
-            fontSize: '0.95rem',
-            boxShadow: '0 4px 14px rgba(0, 184, 148, 0.35)',
-            textTransform: 'none'
+            borderRadius: 2,
+            minHeight: 42,
+            fontSize: '0.9rem',
+            boxShadow: '0 4px 14px rgba(29, 53, 87, 0.25)'
           }}
         >
           {loading ? 'Calculating...' : 'Calculate Safety Level'}

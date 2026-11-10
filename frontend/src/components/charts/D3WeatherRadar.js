@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
-// Normalised snapshot of the user-selected weather inputs (0–100 display scale).
 export default function D3WeatherRadar({ params, darkMode = false }) {
   const ref = useRef(null);
+
   useEffect(() => {
     if (!ref.current || !params) return;
     const metrics = [
@@ -19,6 +19,7 @@ export default function D3WeatherRadar({ params, darkMode = false }) {
     svg.attr('viewBox', `0 0 ${width} ${height}`);
     const g = svg.append('g').attr('transform', `translate(${cx},${cy})`);
     const angle = i => (Math.PI * 2 * i / metrics.length) - Math.PI / 2;
+
     [20, 40, 60, 80, 100].forEach(level => {
       const points = metrics.map((_, i) => [
         Math.cos(angle(i)) * radius * level / 100,
@@ -30,69 +31,72 @@ export default function D3WeatherRadar({ params, darkMode = false }) {
         .attr('stroke', darkMode ? '#475569' : '#cbd5e1')
         .attr('stroke-dasharray', '3 3');
     });
+
     metrics.forEach((m, i) => {
       const a = angle(i), x = Math.cos(a) * radius, y = Math.sin(a) * radius;
       g.append('line')
-        .attr('x2', x)
-        .attr('y2', y)
+        .attr('x2', x).attr('y2', y)
         .attr('stroke', darkMode ? '#64748b' : '#94a3b8');
       g.append('text')
         .attr('x', Math.cos(a) * (radius + 24))
         .attr('y', Math.sin(a) * (radius + 24))
         .attr('text-anchor', Math.abs(Math.cos(a)) < 0.2 ? 'middle' : Math.cos(a) > 0 ? 'start' : 'end')
         .attr('dominant-baseline', 'middle')
-        .attr('font-size', 13)
+        .attr('font-size', 12)
         .attr('font-weight', 700)
         .attr('fill', darkMode ? '#f1f5f9' : '#1e293b')
         .text(m.label);
     });
+
     const line = d3.line().curve(d3.curveLinearClosed);
     const pts = metrics.map((m, i) => [
       Math.cos(angle(i)) * radius * m.value / 100,
       Math.sin(angle(i)) * radius * m.value / 100
     ]);
+
     g.append('path')
       .attr('d', line(pts))
       .attr('fill', '#38bdf8')
       .attr('fill-opacity', 0.32)
       .attr('stroke', '#0284c7')
       .attr('stroke-width', 2.5);
+
     g.selectAll('circle')
       .data(metrics)
       .join('circle')
       .attr('cx', (d, i) => Math.cos(angle(i)) * radius * d.value / 100)
       .attr('cy', (d, i) => Math.sin(angle(i)) * radius * d.value / 100)
-      .attr('r', 4.5)
+      .attr('r', 4)
       .attr('fill', '#0284c7')
       .append('title')
       .text(d => `${d.label}: ${d.value.toFixed(0)} / 100`);
   }, [params, darkMode]);
 
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <svg
         ref={ref}
         style={{
           width: '100%',
-          maxWidth: 440,
+          maxWidth: 400,
           height: 'auto',
-          maxHeight: 280,
-          display: 'block',
-          margin: '0 auto'
+          maxHeight: 200,
+          display: 'block'
         }}
       />
-      <p
+      <div
         style={{
-          fontSize: 12.5,
+          fontSize: 12,
           color: darkMode ? '#94a3b8' : '#64748b',
-          margin: '6px 0 0',
+          marginTop: '4px',
           textAlign: 'center',
-          lineHeight: 1.35,
-          fontWeight: 500
+          lineHeight: 1.4,
+          fontWeight: 500,
+          maxWidth: '90%'
         }}
       >
-        Values are independently scaled to 0–100 for visual comparison; they are not model feature contributions.
-      </p>
+        This chart shows the current weather profile. A larger shape towards a point means higher levels for that specific metric.
+      </div>
     </div>
   );
 }
