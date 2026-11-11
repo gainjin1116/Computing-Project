@@ -1,70 +1,85 @@
-# Getting Started with Create React App
+# Recess Safety Advisor
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+**COS30049 Computing Technology Innovation Project - Assignment 3**
+**Group 6:** Gain Jin, Kwan Kian Ann, Lee Zhao Shean, Lee Chee Cung (Swinburne University of Technology)
 
-## Available Scripts
+## Project Overview
 
-In the project directory, you can run:
+Recess Safety Advisor is a full-stack web application designed to help school administrators, PE teachers, and nurses make real-time, data-driven decisions about outdoor student activities. By integrating atmospheric measurements with a Machine Learning model, the system predicts PM2.5 safety levels (Safe, Caution, Unsafe) and provides immediate, actionable health directives.
 
-### `npm start`
+## Architecture & Technology Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+This project uses a three-tier architecture:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+*   **Frontend (Presentation Tier):** React 18, Material-UI (MUI) for layout and components, D3.js for interactive data visualisations.
+*   **Backend (Application Tier):** FastAPI (Python) with Uvicorn, Pydantic for data validation, CORS middleware for frontend communication.
+*   **Model & Data Tier:** Scikit-learn (Random Forest Pipeline), Pandas, Joblib, and a processed CSV dataset (`Processed_Sydney_AQI.csv`).
 
-### `npm test`
+## Features
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+*   **Zero-Scroll "Flight Deck" UI:** Every critical metric fits within a single viewport without scrolling, adhering to human-factors principles (Nielsen, 1994).
+*   **Safety-First Decision Engine:** Combines AI probability with hard-coded deterministic rules (e.g., heatwave stagnation, bushfire smoke) to override unsafe predictions.
+*   **Real-time Telemetry:** Simulated live micro-climate polling every 30 seconds.
+*   **Offline Fallback Engine:** If the FastAPI backend goes down, the frontend seamlessly switches to a physics-informed local calculation engine.
+*   **Interactive D3 Visualisations:** Dynamic trend lines, weather radars, confusion matrices, and 7x24 heatmaps.
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Getting Started
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Prerequisites
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+*   **Node.js** (v16 or higher)
+*   **Python** (v3.9 or higher)
+*   **npm** (comes with Node.js)
 
-### `npm run eject`
+### 1. Backend Setup (FastAPI)
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Navigate to the `backend` directory and install the required Python packages:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+    cd backend
+    pip install -r requirements.txt
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+*(Note: Ensure `rf_model.pkl`, `scaler.pkl`, `feature_importances.pkl`, and `Processed_Sydney_AQI.csv` are present in the backend directory).*
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Start the FastAPI server:
 
-## Learn More
+    python -m uvicorn main:app --reload --port 8000
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+The API documentation is automatically available at `http://127.0.0.1:8000/docs`.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 2. Frontend Setup (React)
 
-### Code Splitting
+Open a new terminal, navigate to the frontend (root) directory, and install the dependencies:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+    npm install
 
-### Analyzing the Bundle Size
+Start the React development server:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+    npm start
 
-### Making a Progressive Web App
+The application will launch at `http://localhost:3000`.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+---
 
-### Advanced Configuration
+## Running Tests
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Backend unit tests are written using `pytest` (located in `backend/test_main.py`).
 
-### Deployment
+To run the automated tests:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+    cd backend
+    pytest
 
-### `npm run build` fails to minify
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## API Endpoints Summary
+
+| Method | Endpoint | Purpose |
+| :--- | :--- | :--- |
+| `POST` | `/predict` | Classifies weather conditions, applies safety overrides, and returns directives. |
+| `POST` | `/contact` | Submits incident reports to the school health officer. |
+| `GET` | `/telemetry/latest` | Returns simulated live atmospheric telemetry. |
+| `GET` | `/history` | Returns a bounded sample of historical PM2.5 observations. |
+| `GET` | `/feature-importance` | Returns Random Forest feature importance scores. |
+| `GET` | `/weekday-hour` | Aggregates PM2.5 by weekday and hour for the heatmap. |
