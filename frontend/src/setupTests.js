@@ -7,7 +7,6 @@ jest.mock('./components/charts/D3GaugeChart', () => () => <div data-testid="d3-g
 jest.mock('./components/charts/D3ProbabilityDonut', () => () => <div data-testid="d3-probability-donut" />);
 jest.mock('./components/charts/D3DiurnalTrend', () => () => <div data-testid="d3-diurnal-trend" />);
 jest.mock('./components/charts/D3FeatureImportance', () => () => <div data-testid="d3-feature-importance" />);
-jest.mock('./components/charts/D3WeatherClusters', () => () => <div data-testid="d3-weather-clusters" />);
 jest.mock('./components/charts/D3WeatherRadar', () => () => <div data-testid="d3-weather-radar" />);
 jest.mock('./components/charts/D3WeekdayHeatmap', () => () => <div data-testid="d3-weekday-heatmap" />);
 

@@ -11,6 +11,7 @@ export default function D3WeekdayHeatmap({ darkMode = false }) {
   const [hovered, setHovered] = useState(null);
   const [error, setError] = useState('');
 
+  // Historical averages come from the backend and refresh once a minute while this page is open.
   useEffect(() => {
     let active = true;
     const loadSummary = () => axios.get(`${API}/weekday-hour`, { timeout: 10000 })
@@ -22,6 +23,7 @@ export default function D3WeekdayHeatmap({ darkMode = false }) {
     return () => { active = false; window.clearInterval(refreshId); };
   }, []);
 
+  // Place each weekday/hour result in a cell and use color to compare pollution levels.
   useEffect(() => {
     if (!svgRef.current || !data.length) return;
 

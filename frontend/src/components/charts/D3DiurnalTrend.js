@@ -8,6 +8,7 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
   const [hoveredData, setHoveredData] = useState(null);
   const [tooltipConfig, setTooltipConfig] = useState({ x: 0, y: 0, isBelow: false });
 
+  // Accept API-style or form-style names so the chart can reuse the same weather state.
   const params = useMemo(() => {
     const base = activeParams || {};
     return {
@@ -27,6 +28,7 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
     activeParams?.is_holiday
   ]);
 
+  // Build one estimated PM2.5 reading per hour from the selected weather conditions.
   const rawData = useMemo(() => {
     const data = [];
     for (let k = 0; k < 24; k++) {
@@ -66,6 +68,7 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
     return data;
   }, [params, predictionResult]);
 
+  // Summarize recess separately so these values can drive the recommendation above the chart.
   const recessSummary = useMemo(() => {
     const points = rawData.filter(d => d.hour >= 11 && d.hour <= 13);
     if (!points.length) return null;
@@ -99,6 +102,7 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
     return filterMode === 'school' ? rawData.filter(d => d.hour >= 8 && d.hour <= 16) : rawData;
   }, [rawData, filterMode]);
 
+  // D3 draws directly into the SVG, so clear it before drawing the updated chart.
   useEffect(() => {
     if (!svgRef.current) return;
 

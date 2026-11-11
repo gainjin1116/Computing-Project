@@ -35,6 +35,7 @@ export default function D3FeatureImportance({ data }) {
 
   const currentData = data && Object.keys(data).length > 0 ? data : defaultData;
 
+  // Sort the strongest contributors to the top before drawing the horizontal bars.
   useEffect(() => {
     if (!svgRef.current) return;
 

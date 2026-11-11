@@ -49,6 +49,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
   const [errors, setErrors] = useState({});
   const [infoMessage, setInfoMessage] = useState(null);
 
+  // Inputs arrive as text, so convert the numeric fields before sending them to the model.
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -69,6 +70,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     setInfoMessage(null);
   };
 
+  // Reject out-of-range readings here so invalid values never reach either prediction path.
   const validate = () => {
     const newErrors = {};
     const t = Number(formData.temp);
@@ -86,6 +88,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  // This lightweight estimate keeps the simulator usable when the backend cannot be reached.
   const calculateLocalPrediction = (data) => {
     const rush = Math.exp(-Math.pow((data.hour - 8) / 2.5, 2)) + 0.6 * Math.exp(-Math.pow((data.hour - 18) / 2.5, 2));
     let baseEstimate = 12 + 1.6 * Math.max(0, data.temp - 20) - 0.25 * (data.humidity - 50) - 0.3 * data.wind_speed + 0.6 * (data.pressure - 1013) - 6 * data.rain + 5 * rush - (data.is_holiday ? 2 : 0);
@@ -108,6 +111,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     return { prediction, label, probabilities, estimated_pm25: pm25, is_fallback: true, override_applied: overrideApplied };
   };
 
+  // Prefer the API model, then fall back to the local estimate if the request fails.
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!validate()) return;

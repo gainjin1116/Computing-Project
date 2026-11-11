@@ -6,6 +6,7 @@ export default function D3WeatherRadar({ params, darkMode = false }) {
 
   useEffect(() => {
     if (!ref.current || !params) return;
+    // Scale each differently measured weather value onto the same 0-to-100 radar.
     const metrics = [
       { label: 'Temperature', value: Math.max(0, Math.min(100, ((Number(params.temp) + 10) / 60) * 100)) },
       { label: 'Humidity', value: Math.max(0, Math.min(100, Number(params.humidity))) },

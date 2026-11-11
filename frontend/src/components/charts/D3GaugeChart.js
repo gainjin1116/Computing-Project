@@ -5,6 +5,7 @@ export default function D3GaugeChart({ value = 12, maxVal = 100, status = 'Safe'
   const svgRef = useRef(null);
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, zone: '', color: '', tip: '' });
 
+  // Redraw the gauge whenever the latest PM2.5 value or risk level changes.
   useEffect(() => {
     if (!svgRef.current) return;
 
@@ -22,6 +23,7 @@ export default function D3GaugeChart({ value = 12, maxVal = 100, status = 'Safe'
       .attr('viewBox', `0 0 ${width} ${height}`)
       .append('g');
 
+    // Keep the arc within its scale even if a reading falls outside the expected range.
     const clampedVal = Math.max(0, Math.min(value, maxVal));
     const valueAngle = (clampedVal / maxVal) * Math.PI;
 

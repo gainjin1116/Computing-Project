@@ -179,6 +179,7 @@ export default function App() {
     let isMounted = true;
 
     const fetchTelemetry = async () => {
+      // Avoid overlapping requests when one poll takes longer than expected.
       if (isPollingRef.current) return;
       isPollingRef.current = true;
       try {
@@ -189,6 +190,7 @@ export default function App() {
 
         const telemetryRes = await axios.get(`${API_BASE_URL}/telemetry/latest`, { timeout: 3000 });
         if (isMounted && telemetryRes.status === 200 && telemetryRes.data) {
+          // Keep the user's test scenario on screen until they resume live data.
           if (isManualTest) {
             isPollingRef.current = false;
             return;
@@ -273,6 +275,7 @@ export default function App() {
   };
 
   // --- Dynamic Feature Importance Calculation (for XAI simulation) ---
+  // When a manual test triggers a safety override, adjust the chart to reflect the weather inputs.
   const displayFeatureImportances = useMemo(() => {
     if (!isManualTest || !predictionResult.override_applied) {
       return featureImportances;
@@ -644,7 +647,7 @@ ${predictionResult.prediction === 0
           }}
         >
 
-          {/* --- Tab 0: Overview Dashboard --- */}
+          {/* Overview brings the current risk result, key weather readings, and recommended actions together. */}
           {activeTab === 0 && (
             <Box className="fade-in">
 
@@ -1044,7 +1047,7 @@ ${predictionResult.prediction === 0
             </Box>
           )}
 
-          {/* --- Tab 1: Conditions Simulator --- */}
+          {/* Conditions lets users test weather values; the shared result state updates both columns and Overview. */}
           {activeTab === 1 && (
             <Box
               className="fade-in"
@@ -1257,7 +1260,7 @@ ${predictionResult.prediction === 0
             </Box>
           )}
 
-          {/* --- Tab 2: Trends & Analytics --- */}
+          {/* Trends combines a live-input hourly estimate with the historical weekday/hour summary from the API. */}
           {activeTab === 2 && (
             <Box className="fade-in">
               <Box sx={{ mb: 4 }}>
@@ -1353,7 +1356,7 @@ ${predictionResult.prediction === 0
             </Box>
           )}
 
-          {/* --- Tab 3: Model & XAI --- */}
+          {/* Model explains the prediction with feature importance, evaluation results, and the data pipeline. */}
           {activeTab === 3 && (
             <Box className="fade-in">
               <Box sx={{ mb: 4 }}>
@@ -1626,7 +1629,7 @@ ${predictionResult.prediction === 0
             </Box>
           )}
 
-          {/* --- Tab 4: Health & Protocols --- */}
+          {/* Protocols groups emergency, playground, and contact guidance into smaller tabs. */}
           {activeTab === 4 && (
             <Box className="fade-in">
               <Box sx={{ mb: 3 }}>
@@ -1638,7 +1641,7 @@ ${predictionResult.prediction === 0
                 </Typography>
               </Box>
 
-              {/* Sub-tabs Navigation */}
+              {/* This separate tab state switches protocol content without changing the main page. */}
               <Box sx={{ mb: 4, borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs
                   value={protocolTab}
@@ -1665,7 +1668,7 @@ ${predictionResult.prediction === 0
                 </Tabs>
               </Box>
 
-              {/* Protocol Tab 0: Emergency & First Aid */}
+              {/* Emergency guidance is shown first because it covers the most time-critical response. */}
               {protocolTab === 0 && (
                 <Box className="fade-in">
                   <Card
@@ -1814,7 +1817,7 @@ ${predictionResult.prediction === 0
                 </Box>
               )}
 
-              {/* Protocol Tab 1: Playground & Sports */}
+              {/* These rule cards are rendered from a small data list to keep their layout consistent. */}
               {protocolTab === 1 && (
                 <Box className="fade-in">
                   <Card sx={{ p: { xs: 2.5, sm: 3.5 }, display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff', width: '100%' }}>
@@ -1927,7 +1930,7 @@ ${predictionResult.prediction === 0
                 </Box>
               )}
 
-              {/* Protocol Tab 2: Contacts & Health */}
+              {/* Contact details pair tap-to-call links with the form for notifying school staff. */}
               {protocolTab === 2 && (
                 <Box className="fade-in">
                   <Box

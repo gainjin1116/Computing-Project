@@ -6,6 +6,7 @@ export default function D3ProbabilityDonut({ probabilities = [0.85, 0.12, 0.03] 
   const [activeSlice, setActiveSlice] = useState(null);
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, zone: '', color: '', val: 0 });
 
+  // Turn the model's probabilities into slices and highlight the largest one by default.
   useEffect(() => {
     if (!svgRef.current) return;
 
