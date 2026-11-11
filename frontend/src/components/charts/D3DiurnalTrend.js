@@ -4,11 +4,10 @@ import * as d3 from 'd3';
 export default function D3DiurnalTrend({ activeParams, predictionResult, darkMode = false }) {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
-  const [filterMode, setFilterMode] = useState('full'); // 'full' (24h) or 'school' (8:00 - 16:00)
+  const [filterMode, setFilterMode] = useState('full');
   const [hoveredData, setHoveredData] = useState(null);
   const [tooltipConfig, setTooltipConfig] = useState({ x: 0, y: 0, isBelow: false });
 
-  // Accept API-style or form-style names so the chart can reuse the same weather state.
   const params = useMemo(() => {
     const base = activeParams || {};
     return {
@@ -19,16 +18,8 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
       rain: base.rain ?? 0.0,
       hol: base.is_holiday ?? base.hol ?? 0
     };
-  }, [
-    activeParams?.temp,
-    activeParams?.humidity,
-    activeParams?.wind_speed,
-    activeParams?.pressure,
-    activeParams?.rain,
-    activeParams?.is_holiday
-  ]);
+  }, [activeParams]);
 
-  // Build one estimated PM2.5 reading per hour from the selected weather conditions.
   const rawData = useMemo(() => {
     const data = [];
     for (let k = 0; k < 24; k++) {
@@ -68,7 +59,6 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
     return data;
   }, [params, predictionResult]);
 
-  // Summarize recess separately so these values can drive the recommendation above the chart.
   const recessSummary = useMemo(() => {
     const points = rawData.filter(d => d.hour >= 11 && d.hour <= 13);
     if (!points.length) return null;
@@ -102,7 +92,6 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
     return filterMode === 'school' ? rawData.filter(d => d.hour >= 8 && d.hour <= 16) : rawData;
   }, [rawData, filterMode]);
 
-  // D3 draws directly into the SVG, so clear it before drawing the updated chart.
   useEffect(() => {
     if (!svgRef.current) return;
 
@@ -285,8 +274,6 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
     const line = d3.line()
       .x(d => xScale(d.hour)).y(d => yScale(d.pm25)).curve(d3.curveMonotoneX);
 
-    // --- FIXED SEGMENT LOGIC ---
-    // Ensures that the first few points always draw a line, even if colors don't change.
     const segments = [];
     let currentSegment = [dataset[0]];
     let currentColor = dataset[0].pm25 <= 25 ? '#16a34a' : dataset[0].pm25 <= 50 ? '#f59e0b' : '#dc2626';
@@ -298,16 +285,12 @@ export default function D3DiurnalTrend({ activeParams, predictionResult, darkMod
       if (color === currentColor) {
         currentSegment.push(d);
       } else {
-        // Push the point that caused the color change to bridge the gap smoothly
         currentSegment.push(d);
         segments.push({ color: currentColor, data: [...currentSegment] });
-
-        // Start the new segment from the previous point to avoid gaps
         currentSegment = [dataset[i - 1], d];
         currentColor = color;
       }
     }
-    // Push the final remaining segment
     if (currentSegment.length > 0) {
       segments.push({ color: currentColor, data: [...currentSegment] });
     }
