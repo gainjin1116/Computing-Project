@@ -21,8 +21,10 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 
+// Define the backend API URL from environment variables, falling back to localhost
 const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
+// Pre-defined weather scenarios for quick testing by teachers
 const PRESETS = {
   calm: { name: 'Calm Sunny Morning', data: { temp: 22.0, humidity: 62.0, wind_speed: 3.5, wind_dir: 45, rain: 0.0, pressure: 1016.0, hour: 10, day_of_week: 1, is_holiday: 0 } },
   rainy: { name: 'Humid & Rainy', data: { temp: 17.5, humidity: 92.0, wind_speed: 6.0, wind_dir: 180, rain: 8.5, pressure: 1010.0, hour: 11, day_of_week: 2, is_holiday: 0 } },
@@ -31,6 +33,7 @@ const PRESETS = {
   haze: { name: 'Bushfire Haze', data: { temp: 34.0, humidity: 28.0, wind_speed: 2.1, wind_dir: 290, rain: 0.0, pressure: 1021.0, hour: 12, day_of_week: 5, is_holiday: 0 } }
 };
 
+// Standardized inline styling for dropdowns and number inputs
 const inputStyle = {
   width: '100%',
   padding: '4px 6px',
@@ -44,12 +47,16 @@ const inputStyle = {
 };
 
 export default function PredictForm({ onPredict, onBackendStatusChange }) {
+  // State to hold the current weather inputs
   const [formData, setFormData] = useState({ ...PRESETS.calm.data });
+  // State to track if the API request is in progress
   const [loading, setLoading] = useState(false);
+  // State for validation errors
   const [errors, setErrors] = useState({});
+  // State for displaying success/info messages (e.g., API online/offline)
   const [infoMessage, setInfoMessage] = useState(null);
 
-  // Inputs arrive as text, so convert the numeric fields before sending them to the model.
+  // Inputs arrive as strings from HTML elements, so convert specific fields back to numbers
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -60,17 +67,19 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     }));
   };
 
+  // Update state when a slider is dragged
   const handleSliderChange = (name) => (_, newValue) => {
     setFormData(prev => ({ ...prev, [name]: newValue }));
   };
 
+  // Instantly load a predefined weather scenario and clear previous messages
   const applyPreset = (key) => {
     setFormData({ ...PRESETS[key].data });
     setErrors({});
     setInfoMessage(null);
   };
 
-  // Reject out-of-range readings here so invalid values never reach either prediction path.
+  // Client-side validation: Reject out-of-range readings before they reach the model
   const validate = () => {
     const newErrors = {};
     const t = Number(formData.temp);
@@ -84,21 +93,27 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     if (isNaN(w) || w < 0 || w > 50) newErrors.wind_speed = 'Wind: 0 to 50 m/s';
     if (isNaN(r) || r < 0 || r > 100) newErrors.rain = 'Rain: ≥ 0 mm';
     if (isNaN(p) || p < 900 || p > 1100) newErrors.pressure = 'Pressure: 900 to 1100 hPa';
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return Object.keys(newErrors).length === 0; // Returns true if no errors
   };
 
-  // This lightweight estimate keeps the simulator usable when the backend cannot be reached.
+  // Local Fallback Engine: A lightweight heuristic used if the backend is unreachable
   const calculateLocalPrediction = (data) => {
+    // Simulate rush hour spikes based on the hour of the day
     const rush = Math.exp(-Math.pow((data.hour - 8) / 2.5, 2)) + 0.6 * Math.exp(-Math.pow((data.hour - 18) / 2.5, 2));
+    // Base PM2.5 estimate using atmospheric physics approximations
     let baseEstimate = 12 + 1.6 * Math.max(0, data.temp - 20) - 0.25 * (data.humidity - 50) - 0.3 * data.wind_speed + 0.6 * (data.pressure - 1013) - 6 * data.rain + 5 * rush - (data.is_holiday ? 2 : 0);
+    // Extreme dry heat bushfire adjustment
     if (data.temp > 30.0 && data.humidity < 40.0) baseEstimate += 25.0;
     const pm25 = Math.max(1, Math.min(130, Math.round(baseEstimate * 10) / 10));
 
+    // Map PM2.5 to safety classes
     let prediction = 0, label = 'Safe', probabilities = [0.92, 0.06, 0.02];
     if (pm25 > 50) { prediction = 2; label = 'Unsafe'; probabilities = [0.08, 0.18, 0.74]; }
     else if (pm25 > 25) { prediction = 1; label = 'Caution'; probabilities = [0.15, 0.72, 0.13]; }
 
+    // Hard-coded safety rules act as a backstop even in fallback mode
     let overrideApplied = false;
     if (data.temp > 35 && data.humidity > 75 && data.wind_speed < 1.5) {
       prediction = 2; label = 'Unsafe'; probabilities = [0.04, 0.14, 0.82]; overrideApplied = true;
@@ -108,14 +123,17 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
       prediction = 2; label = 'Unsafe'; probabilities = [0.05, 0.15, 0.80]; overrideApplied = true;
     }
 
+    // Flag that this result came from the fallback engine
     return { prediction, label, probabilities, estimated_pm25: pm25, is_fallback: true, override_applied: overrideApplied };
   };
 
-  // Prefer the API model, then fall back to the local estimate if the request fails.
+  // Handle form submission: Try the real backend first, fall back to local engine on failure
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    // Stop submission if validation fails
     if (!validate()) return;
 
+    // Ensure data types are strictly numbers before sending
     const submissionData = {
       ...formData,
       temp: Number(formData.temp), humidity: Number(formData.humidity), wind_speed: Number(formData.wind_speed), rain: Number(formData.rain), pressure: Number(formData.pressure)
@@ -125,21 +143,37 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
     setInfoMessage(null);
 
     try {
+      // Send POST request to the FastAPI backend with a 2.5 second timeout
       const response = await axios.post(`${API_BASE}/predict`, submissionData, { timeout: 2500 });
+
+      // Notify parent that the backend is online
       if (onBackendStatusChange) onBackendStatusChange(true);
+
+      // Keep the local PM2.5 estimate for visualization purposes alongside the API result
       const localEst = calculateLocalPrediction(submissionData);
+
+      // Pass the API result to the parent component
       onPredict({ ...response.data, estimated_pm25: localEst.estimated_pm25, is_fallback: false, input_params: { ...submissionData } });
       setInfoMessage('Prediction retrieved from FastAPI backend.');
+
     } catch (err) {
+      // The backend failed or timed out. Trigger Local Fallback.
       if (onBackendStatusChange) onBackendStatusChange(false);
+
+      // Calculate prediction locally
       const localResult = calculateLocalPrediction(submissionData);
+
+      // Pass the fallback result to the parent component
       onPredict({ ...localResult, input_params: { ...submissionData } });
       setInfoMessage('Backend offline — computed via local ML engine.');
+
     } finally {
+      // Stop loading state regardless of success or failure
       setLoading(false);
     }
   };
 
+  // A reusable UI component for rendering a single slider with label and value
   const MetricRow = ({ label, value, unit, name, min, max, step, color = 'primary.main' }) => (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -166,12 +200,14 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
 
   return (
     <Box component="form" onSubmit={handleSubmit} noValidate sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Display error alerts at the top of the form if validation fails */}
       {Object.keys(errors).length > 0 && (
         <Alert severity="error" sx={{ mb: 1.5, py: 0, fontSize: '0.7rem', borderRadius: 1.5 }}>
           {Object.values(errors)[0]}
         </Alert>
       )}
 
+      {/* Top Header: Preset chips and reset button */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
           <Typography sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: 0.5, mr: 0.5 }}>
@@ -191,12 +227,14 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
         </Tooltip>
       </Box>
 
+      {/* Display info alerts (e.g., API connection status) */}
       {infoMessage && (
         <Alert severity={infoMessage.includes('offline') ? 'info' : 'success'} sx={{ mb: 1, py: 0, fontSize: '0.7rem', borderRadius: 1.5 }} onClose={() => setInfoMessage(null)}>
           {infoMessage}
         </Alert>
       )}
 
+      {/* Sliders for numeric inputs */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mb: 1.5 }}>
         <MetricRow label="Temperature" value={formData.temp} unit="°C" name="temp" min={-5} max={45} step={0.5} />
         <MetricRow label="Humidity" value={formData.humidity} unit="%" name="humidity" min={0} max={100} step={1} />
@@ -206,6 +244,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
 
       <Box sx={{ borderTop: 1, borderColor: 'divider', mb: 1, mt: -0.25 }} />
 
+      {/* Dropdowns for wind direction and numeric input for pressure */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1 }}>
         <Box>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.secondary', mb: 0.4 }}>Wind Dir</Typography>
@@ -226,6 +265,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
         </Box>
       </Box>
 
+      {/* Dropdowns for temporal data (Hour, Day, Holiday) */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mb: 1.5 }}>
         <Box>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.secondary', mb: 0.4 }}>Hour</Typography>
@@ -256,6 +296,7 @@ export default function PredictForm({ onPredict, onBackendStatusChange }) {
         </Box>
       </Box>
 
+      {/* Submit Button */}
       <Box sx={{ pt: 1.5, mt: 'auto', borderTop: 1, borderColor: 'divider' }}>
         <Button
           type="submit"
