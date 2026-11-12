@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 from main import app
 
+# Initialize the test client using the FastAPI app instance
 client = TestClient(app)
 
 # =============================================================================
@@ -10,6 +11,7 @@ client = TestClient(app)
 # =============================================================================
 
 def test_valid_prediction_request_accepted():
+    # Send a fully valid payload to ensure the API returns 200 OK
     payload = {
         "temp": 22.0,
         "humidity": 60.0,
@@ -24,6 +26,7 @@ def test_valid_prediction_request_accepted():
     response = client.post("/predict", json=payload)
     assert response.status_code == 200
     data = response.json()
+    # Verify the response schema matches PredictionResponse
     assert "prediction" in data
     assert "label" in data
     assert "probabilities" in data
@@ -31,7 +34,7 @@ def test_valid_prediction_request_accepted():
     assert data["label"] in ["Safe", "Caution", "Unsafe"]
 
 def test_missing_required_fields_returns_422():
-    # Payload missing 'humidity' and 'pressure'
+    # Payload intentionally missing 'humidity' and 'pressure' to test Pydantic validation
     incomplete_payload = {
         "temp": 22.0,
         "wind_speed": 4.0,
@@ -46,7 +49,7 @@ def test_missing_required_fields_returns_422():
     assert "detail" in response.json()
 
 def test_incorrect_data_types_rejected_with_422():
-    # String passed instead of float for temperature
+    # String passed instead of float for temperature to test type enforcement
     invalid_type_payload = {
         "temp": "very_hot",
         "humidity": 60.0,
@@ -62,6 +65,7 @@ def test_incorrect_data_types_rejected_with_422():
     assert response.status_code == 422
 
 def test_unexpected_payload_fields_do_not_crash_server():
+    # Sending extra fields should be ignored by Pydantic without crashing
     payload = {
         "temp": 20.0,
         "humidity": 50.0,
@@ -84,6 +88,7 @@ def test_unexpected_payload_fields_do_not_crash_server():
 
 @pytest.mark.parametrize("temp_val", [-10.0, 0.0, 25.0, 50.0])
 def test_temperature_within_boundary_accepted(temp_val):
+    # Verify that temperatures exactly at or within the boundaries are accepted
     payload = {
         "temp": temp_val,
         "humidity": 50.0,
@@ -100,8 +105,9 @@ def test_temperature_within_boundary_accepted(temp_val):
     assert response.json()["estimated_pm25"] >= 0
 
 def test_temperature_below_minimum_boundary_rejected():
+    # Verify that -11°C is rejected (Pydantic ge=-10 constraint)
     payload = {
-        "temp": -11.0,  # Below -10°C minimum
+        "temp": -11.0,
         "humidity": 50.0,
         "wind_speed": 5.0,
         "wind_dir": 90.0,
@@ -116,8 +122,9 @@ def test_temperature_below_minimum_boundary_rejected():
     assert "temp" in str(response.json()["detail"])
 
 def test_temperature_above_maximum_boundary_rejected():
+    # Verify that 51°C is rejected (Pydantic le=50 constraint)
     payload = {
-        "temp": 51.0,  # Above 50°C maximum
+        "temp": 51.0,
         "humidity": 50.0,
         "wind_speed": 5.0,
         "wind_dir": 90.0,
@@ -136,6 +143,7 @@ def test_temperature_above_maximum_boundary_rejected():
 # =============================================================================
 
 def test_prediction_response_contract_and_structure():
+    # Ensure the JSON response perfectly matches the expected schema
     payload = {
         "temp": 18.0,
         "humidity": 55.0,
@@ -154,13 +162,14 @@ def test_prediction_response_contract_and_structure():
     assert isinstance(data["label"], str)
     assert isinstance(data["probabilities"], list)
     assert len(data["probabilities"]) == 3
+    # Probabilities should sum to 1.0
     assert pytest.approx(sum(data["probabilities"]), 0.01) == 1.0
     assert isinstance(data["estimated_pm25"], (int, float))
     assert isinstance(data["override_applied"], bool)
     assert isinstance(data["is_fallback"], bool)
 
 def test_extreme_heatwave_triggers_unsafe_override():
-    # Stagnant heatwave: temp > 35, humidity > 75, wind < 1.5
+    # Trigger H1: temp > 35, humidity > 75, wind < 1.5
     heatwave_payload = {
         "temp": 38.0,
         "humidity": 85.0,
@@ -180,7 +189,7 @@ def test_extreme_heatwave_triggers_unsafe_override():
     assert data["override_applied"] is True
 
 def test_moderate_inversion_triggers_caution_override():
-    # Warm stagnant condition: temp > 30, humidity > 70, wind < 3.0
+    # Trigger H2: temp > 30, humidity > 70, wind < 3.0
     caution_payload = {
         "temp": 32.0,
         "humidity": 74.0,
@@ -203,10 +212,12 @@ def test_moderate_inversion_triggers_caution_override():
 # =============================================================================
 
 def test_missing_request_body_returns_422():
+    # Posting without a body should trigger a 422 validation error
     response = client.post("/predict")
     assert response.status_code == 422
 
 def test_malformed_json_returns_422():
+    # Sending invalid JSON syntax should trigger a 422 validation error
     response = client.post(
         "/predict",
         content="This is not JSON",
@@ -215,9 +226,10 @@ def test_malformed_json_returns_422():
     assert response.status_code == 422
 
 def test_out_of_range_humidity_rejected():
+    # Humidity > 100% violates Pydantic le=100 constraint
     payload = {
         "temp": 20.0,
-        "humidity": 150.0,  # Max 100%
+        "humidity": 150.0,
         "wind_speed": 5.0,
         "wind_dir": 45.0,
         "rain": 0.0,
@@ -230,6 +242,7 @@ def test_out_of_range_humidity_rejected():
     assert response.status_code == 422
 
 def test_contact_form_invalid_email_format_rejected():
+    # Invalid email should be caught by backend validation
     invalid_contact = {
         "name": "Alex Smith",
         "role": "Teacher",
@@ -241,7 +254,7 @@ def test_contact_form_invalid_email_format_rejected():
     assert "Invalid email format" in response.json()["detail"]
 
 def test_settings_thresholds_invalid_range_rejected():
-    # safe_max must be strictly less than caution_max
+    # Safe max must be strictly less than caution max to prevent logic errors
     invalid_thresholds = {
         "safe_max": 50.0,
         "caution_max": 25.0
@@ -254,6 +267,7 @@ def test_settings_thresholds_invalid_range_rejected():
 # =============================================================================
 
 def test_root_health_check_endpoint():
+    # Root endpoint should return a welcome message and station info
     response = client.get("/")
     assert response.status_code == 200
     data = response.json()
@@ -261,6 +275,7 @@ def test_root_health_check_endpoint():
     assert "Luddenham" in data["station"]
 
 def test_feature_importance_endpoint():
+    # Feature importance values must sum to 1.0 across all features
     response = client.get("/feature-importance")
     assert response.status_code == 200
     data = response.json()
@@ -269,6 +284,7 @@ def test_feature_importance_endpoint():
     assert pytest.approx(sum(data.values()), 0.05) == 1.0
 
 def test_latest_telemetry_endpoint_provides_real_time_sync():
+    # Telemetry endpoint should return simulated sensor data with a timestamp
     response = client.get("/telemetry/latest")
     assert response.status_code == 200
     data = response.json()
@@ -282,6 +298,7 @@ def test_latest_telemetry_endpoint_provides_real_time_sync():
     assert data["status"] == "online"
 
 def test_contact_submission_full_cycle():
+    # Submitting a valid contact form should return a success message and incident ID
     valid_contact = {
         "name": "Sarah Connor",
         "role": "PE Coordinator",
@@ -297,13 +314,13 @@ def test_contact_submission_full_cycle():
     assert data["received_data"]["name"] == "Sarah Connor"
 
 def test_threshold_settings_get_and_put_cycle():
-    # Update thresholds
+    # Update thresholds via PUT, then verify via GET
     update_payload = {"safe_max": 22.0, "caution_max": 48.0}
     put_res = client.put("/settings/thresholds", json=update_payload)
     assert put_res.status_code == 200
     assert put_res.json()["thresholds"]["safe_max"] == 22.0
 
-    # Retrieve thresholds via GET
+    # Retrieve the updated thresholds
     get_res = client.get("/settings/thresholds")
     assert get_res.status_code == 200
     assert get_res.json()["safe_max"] == 22.0

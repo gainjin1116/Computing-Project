@@ -34,29 +34,24 @@ This project uses a three-tier architecture:
 *   **npm** (comes with Node.js)
 
 ### 1. Backend Setup (FastAPI)
-
 Navigate to the `backend` directory and install the required Python packages:
-
     cd backend
     pip install -r requirements.txt
 
 *(Note: Ensure `rf_model.pkl`, `scaler.pkl`, `feature_importances.pkl`, and `Processed_Sydney_AQI.csv` are present in the backend directory).*
 
 Start the FastAPI server:
-
-    python -m uvicorn main:app --reload --port 8000
+    py -m uvicorn main:app --reload
 
 The API documentation is automatically available at `http://127.0.0.1:8000/docs`.
 
 ### 2. Frontend Setup (React)
-
 Open a new terminal, navigate to the frontend (root) directory, and install the dependencies:
-
+    cd frontend
     npm install
 
 Start the React development server:
-
-    npm start
+    npm.cmd start
 
 The application will launch at `http://localhost:3000`.
 

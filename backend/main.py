@@ -13,18 +13,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+# Define base directory and paths for datasets and model files
 BASE_DIR = Path(__file__).resolve().parent
 DATA_PATH = BASE_DIR / "Processed_Sydney_AQI.csv"
+
+# Define the exact feature order expected by the trained machine learning model
 FEATURES = ["LUDD_T", "LUDD_RH", "LUDD_ws", "LUDD_wd", "LUDD_Rain", "LUDD_p", "Hour", "DayOfWeek", "Is_Holiday"]
 LABELS = {0: "Safe", 1: "Caution", 2: "Unsafe"}
 
-app = FastAPI(title="Recess Safety Advisor API", version="2.0.0", description="Prediction and historical air-quality analytics for the Recess Safety Advisor.")
+# Initialize FastAPI app with metadata for auto-generated Swagger documentation
+app = FastAPI(
+    title="Recess Safety Advisor API", 
+    version="2.0.0", 
+    description="Prediction and historical air-quality analytics for the Recess Safety Advisor."
+)
+
+# Configure CORS to allow the React frontend to communicate with the API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000"],
-    allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
+    allow_credentials=True, 
+    allow_methods=["*"], 
+    allow_headers=["*"],
 )
 
+# --- Model and Data Loading ---
+# Load the serialised machine learning pipeline (.pkl files) on server startup
 scaler = model = feature_importances = None
 model_load_error = None
 try:
@@ -34,6 +48,7 @@ try:
 except Exception as exc:
     model_load_error = str(exc)
 
+# Load the processed dataset for historical analytics endpoints
 dataset_load_error = None
 try:
     DATA = pd.read_csv(DATA_PATH, sep=r"\||,", engine="python")
@@ -47,8 +62,9 @@ except Exception as exc:
     dataset_load_error = str(exc)
 
 
-# ---------- Pydantic models ----------
+# ---------- Pydantic Models (Data Validation) ----------
 
+# Strict schema for incoming prediction requests to prevent invalid data reaching the model
 class WeatherInput(BaseModel):
     temp: float = Field(..., ge=-10, le=50)
     humidity: float = Field(..., ge=0, le=100)
@@ -60,7 +76,7 @@ class WeatherInput(BaseModel):
     day_of_week: int = Field(..., ge=0, le=6)
     is_holiday: int = Field(..., ge=0, le=1)
 
-
+# Schema for the prediction response, ensuring the frontend knows exactly what to expect
 class PredictionResponse(BaseModel):
     prediction: int
     label: str
@@ -70,7 +86,7 @@ class PredictionResponse(BaseModel):
     is_fallback: bool = False
     override_applied: bool = False
 
-
+# Schema for the contact form submission
 class ContactMessage(BaseModel):
     name: str
     role: str
@@ -78,22 +94,21 @@ class ContactMessage(BaseModel):
     message: Optional[str] = ""
 
 
-# ---------- Helpers ----------
+# ---------- Helper Functions ----------
 
 def calculate_scientific_pm25(data: WeatherInput) -> float:
     """
     Physics-informed PM2.5 estimate for Luddenham station.
-
     Combines baseline background PM2.5 with adjustments for:
-    - temperature (higher temp -> photochemical activity up to a point)
-    - humidity (high humidity -> hygroscopic growth of particles)
-    - wind speed (higher wind -> dispersion, lower PM2.5)
-    - rain (rain -> wet deposition, lower PM2.5)
-    - traffic cycles (rush-hour peaks by hour and weekday/holiday)
+    - temperature (photochemical activity)
+    - humidity (hygroscopic growth)
+    - wind speed (dispersion)
+    - rain (wet deposition)
+    - traffic cycles (rush-hour peaks)
     """
     base = 10.0
 
-    # Temperature: mild increase up to ~28C, then slight decrease
+    # Temperature: mild increase up to ~28C
     temp_effect = 0.25 * max(0.0, min(data.temp, 28.0) - 18.0)
 
     # Humidity: hygroscopic growth above 60% RH
@@ -105,7 +120,7 @@ def calculate_scientific_pm25(data: WeatherInput) -> float:
     # Rain: wet deposition
     rain_effect = -2.5 * min(data.rain, 5.0)
 
-    # Traffic / daily pattern
+    # Traffic / daily pattern based on holidays and weekends
     if data.is_holiday:
         traffic = 0.0
     elif data.day_of_week >= 5:  # Sat/Sun
@@ -122,9 +137,9 @@ def calculate_scientific_pm25(data: WeatherInput) -> float:
 
     estimate = base + temp_effect + humidity_effect + wind_effect + rain_effect + traffic_effect
     
-    # NEW: Extreme dry heat bushfire smoke adjustment
+    # Extreme dry heat bushfire smoke adjustment
     if data.temp > 30.0 and data.humidity < 40.0:
-        estimate += 25.0  # Add significant baseline for bushfire conditions
+        estimate += 25.0  
         
     return round(float(max(estimate, 1.0)), 1)
 
@@ -138,6 +153,7 @@ def read_root():
 
 @app.get("/health")
 def health():
+    # Endpoint for monitoring the server and model load status
     return {
         "status": "ok",
         "model_loaded": model is not None,
@@ -150,6 +166,7 @@ def health():
 
 @app.get("/feature-importance")
 def get_feature_importance():
+    # Returns the Random Forest feature importances for the XAI bar chart
     if feature_importances is None:
         raise HTTPException(status_code=503, detail="Model files are unavailable. Run py train_save.py in the backend folder.")
     return {str(k): float(v) for k, v in feature_importances.items()}
@@ -158,14 +175,14 @@ def get_feature_importance():
 @app.get("/telemetry/latest")
 def get_latest_telemetry():
     """
-    Returns real-time calibrated atmospheric telemetry readings for Luddenham station.
-    Enables automatic background polling and state synchronization on the Overview dashboard.
+    Returns simulated live atmospheric telemetry based on the current time.
+    Enables automatic background polling on the Overview dashboard.
     """
     now = datetime.now()
     current_hour = now.hour
     weekday = now.weekday()  # 0 = Monday, 6 = Sunday
 
-    # Simulate realistic microclimate swings matching current time of day
+    # Simulate realistic micro-climate swings matching current time of day
     temp_swing = 5.0 * np.sin(((current_hour - 8) / 24.0) * 2 * np.pi)
     ambient_temp = float(np.round(21.5 + temp_swing, 1))
     ambient_humidity = float(np.round(np.clip(65.0 - temp_swing * 2.0, 30.0, 95.0), 1))
@@ -205,14 +222,23 @@ def get_latest_telemetry():
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict_safety(data: WeatherInput):
+    # Core prediction endpoint
     if model is None or scaler is None:
         raise HTTPException(status_code=503, detail="Model files are unavailable. Run py train_save.py in the backend folder.")
+    
     try:
+        # Format input values in the exact feature order the model expects
         values = [[data.temp, data.humidity, data.wind_speed, data.wind_dir, data.rain,
                    data.pressure, data.hour, data.day_of_week, data.is_holiday]]
+        
+        # Scale the inputs using the loaded StandardScaler
         scaled = scaler.transform(pd.DataFrame(values, columns=FEATURES))
+        
+        # Run inference
         prediction = int(model.predict(scaled)[0])
         raw_probabilities = model.predict_proba(scaled)[0]
+        
+        # Map probabilities back to class labels
         probabilities = [0.0, 0.0, 0.0]
         for class_id, probability in zip(model.classes_, raw_probabilities):
             if int(class_id) in LABELS:
@@ -220,22 +246,20 @@ def predict_safety(data: WeatherInput):
 
         estimated_pm25 = calculate_scientific_pm25(data)
 
-        # Deterministic safety overrides
+        # --- Deterministic Safety Rule Overrides ---
+        # These rules protect against situations the AI model was not trained on
         override = False
         
-        # 1. Heatwave stagnation rule
-        heat_override = (
-            data.temp > 35.0 and data.humidity > 75.0 and data.wind_speed < 1.5
-        )
-        heat_caution = (
-            data.temp > 30.0 and data.humidity > 70.0 and data.wind_speed < 3.0
-        )
+        # Rule 1: Heatwave stagnation (extreme heat + high humidity + no wind)
+        heat_override = (data.temp > 35.0 and data.humidity > 75.0 and data.wind_speed < 1.5)
         
-        # 2. Bushfire smoke rule (High temp, extremely low humidity, low wind)
-        bushfire_override = (
-            data.temp > 30.0 and data.humidity < 40.0 and data.wind_speed < 4.0
-        )
+        # Rule 2: Mild heat stress
+        heat_caution = (data.temp > 30.0 and data.humidity > 70.0 and data.wind_speed < 3.0)
         
+        # Rule 3: Bushfire smoke (high temp + extremely low humidity + low wind)
+        bushfire_override = (data.temp > 30.0 and data.humidity < 40.0 and data.wind_speed < 4.0)
+        
+        # Apply the rules, only escalating the warning level, never downgrading it
         if bushfire_override and prediction < 2:
             prediction = 2
             probabilities = [0.05, 0.15, 0.80]
@@ -264,8 +288,8 @@ def predict_safety(data: WeatherInput):
 
 @app.post("/explain")
 def explain_prediction(data: WeatherInput):
-    """Return model-agnostic local sensitivity, not SHAP or causal attribution.
-
+    """
+    Return model-agnostic local sensitivity, not SHAP or causal attribution.
     Each feature is replaced individually with its dataset median while the
     remaining inputs stay fixed. The probability change indicates local model
     sensitivity around this input.
@@ -314,7 +338,7 @@ def explain_prediction(data: WeatherInput):
 
 @app.get("/history")
 def get_history(limit: int = Query(500, ge=1, le=5000), day_of_week: Optional[int] = Query(None, ge=0, le=6), hour: Optional[int] = Query(None, ge=0, le=23), safety_level: Optional[int] = Query(None, ge=0, le=2)):
-    """Return a bounded sample of actual dataset observations; no dates are fabricated."""
+    """Return a bounded sample of actual dataset observations for the 24-hour trend chart."""
     if DATA.empty:
         raise HTTPException(status_code=503, detail="Historical dataset is unavailable.")
     frame = DATA
@@ -336,7 +360,7 @@ def get_history(limit: int = Query(500, ge=1, le=5000), day_of_week: Optional[in
 
 @app.get("/weekday-hour")
 def weekday_hour():
-    """Average PM2.5 by weekday and hour, suitable for a heatmap without invented dates."""
+    """Average PM2.5 by weekday and hour, used to power the 7x24 weekly heatmap."""
     if DATA.empty:
         raise HTTPException(status_code=503, detail="Historical dataset is unavailable.")
     grouped = DATA.groupby(["DayOfWeek", "Hour"], as_index=False).agg(
@@ -347,6 +371,7 @@ def weekday_hour():
 
 @app.get("/export/history.csv")
 def export_history(day_of_week: Optional[int] = Query(None, ge=0, le=6)):
+    """Download the historical dataset as a CSV file."""
     if DATA.empty:
         raise HTTPException(status_code=503, detail="Historical dataset is unavailable.")
     frame = DATA if day_of_week is None else DATA[DATA.DayOfWeek.astype(int) == day_of_week]
